@@ -1,53 +1,41 @@
-# Tradsiee: Video Lead Generation Engine
+# Tradsiee: Technical Documentation (GEMINI.md)
+
+This file serves as the technical source of truth for the Tradsiee project, prioritized by Gemini CLI.
 
 ## Project Overview
-Tradsiee is a specialized lead generation platform designed for tradespeople ("tradies"). It allows customers to quickly record or upload a video describing their problem (e.g., a plumbing leak), which is then sent as a lead to the tradie. The system handles video storage, SMS notifications, and provides a comprehensive dashboard for tradies to manage their leads.
+Tradsiee is a video-first lead generation platform designed to bridge the gap between customers and tradespeople. By providing visual context through video, it eliminates "discovery trips" and ensures tradies arrive prepared with the right tools and parts.
 
-### Main Technologies
-- **Backend:** Python (FastAPI)
-- **Database & Auth:** Supabase
-- **Video Storage:** Cloudinary
-- **SMS Notifications:** Twilio
-- **Frontend:** Vanilla HTML/JS with Tailwind CSS, Chart.js for analytics.
+## Core Tech Stack
+- **API Framework:** FastAPI (Python)
+- **Persistence & Auth:** Supabase (PostgreSQL + GoTrue)
+- **Media Management:** Cloudinary (Unsigned client-side uploads)
+- **Communications:** Twilio SMS API
+- **UI/UX:** Tailwind CSS (CDN), Vanilla JavaScript, Chart.js
 
-## Architecture
-The system follows a widget-based architecture:
-1.  **Widget Injection:** Tradies embed a `<script>` tag pointing to the `/loader.js` endpoint.
-2.  **Customer Interaction:** Customers enter their phone number, record a video, and provide a description.
-3.  **Lead Processing:** The backend receives the lead, stores the video in Cloudinary, records metadata in Supabase, and notifies the tradie via Twilio SMS.
-4.  **Tradie Portal:** A password-protected dashboard (`portal.html`) allows tradies to view lead details, watch videos, and manage their business performance.
+## System Workflow
+1. **The Widget:** A client-side script injected into trade websites.
+2. **Lead Submission:** Customers provide a phone number and a video file.
+3. **Data Pipeline:**
+   - Video → Cloudinary (Direct Upload)
+   - Lead Metadata → Supabase `leads` table
+   - SMS Alert → Tradie (Twilio)
+4. **The Portal:** A protected interface (`portal.html`) where tradies manage leads and view analytics.
 
-## Getting Started
+## Setup & Execution
+- **Environment:** Requires `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `CLOUDINARY_URL`, and `TWILIO_SID/AUTH`.
+- **Backend Start:** `uvicorn main:app --reload`
+- **Frontend Start:** Static file hosting on port 5500 (default for many dev servers).
 
-### Prerequisites
-- Python 3.12+
-- A `.env` file with credentials for Supabase, Cloudinary, and Twilio.
-- A Supabase project with appropriate tables (businesses, leads).
+## Code Conventions
+- **Validation:** Pydantic models in `main.py`.
+- **Security:** `HTTPBearer` for JWT verification against Supabase.
+- **Styling:** Rapid UI development using Utility-first CSS (Tailwind).
 
-### Building and Running
-- **Backend:** 
-  ```bash
-  uvicorn main:app --reload
-  ```
-- **Frontend:** 
-  The HTML files can be served using any static server (e.g., Live Server in VS Code or `python -m http.server 5500`).
-  Note: The widget expects the backend to be running on `http://127.0.0.1:8000`.
+## Roadmap
+- [ ] Comprehensive test suite for FastAPI routes.
+- [ ] Transition to a modern framework (e.g., React/Vue) for the dashboard.
+- [ ] Enhanced video compression before upload.
+- [ ] Automated error tracking integration.
 
-### Core Components
-- `main.py`: The FastAPI application, handling API routes, authentication dependencies, and external integrations.
-- `index.html`: The core widget template.
-- `portal.html`: The main tradie dashboard.
-- `login.html` / `signup.html`: Authentication flow.
-- `.env`: Environment configuration for third-party services.
-
-## Development Conventions
-- **API Styling:** Follows FastAPI best practices with Pydantic models for validation and `HTTPBearer` for Supabase JWT verification.
-- **Frontend Styling:** Uses Tailwind CSS via CDN for rapid prototyping and styling.
-- **Video Handling:** Direct uploads to Cloudinary from the client side using unsigned presets.
-- **SMS:** Twilio Messaging Service is used for both tradie and customer notifications.
-
-## TODO / Future Improvements
-- [ ] Add unit and integration tests for FastAPI routes.
-- [ ] Implement a more robust templating engine for the widget (currently using string replacement).
-- [ ] Move frontend logic into a modern framework (React/Vue) for better state management in the portal.
-- [ ] Implement error logging and monitoring (e.g., Sentry).
+---
+*Note: This file is for developer reference. See README.md for the general project overview.*
