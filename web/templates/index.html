@@ -1,3 +1,20 @@
+<!-- 
+    AI_INFO: 
+    This file is the core Tradsiee Lead Submission Widget. It operates as a multi-step wizard (3 steps) 
+    designed to capture high-intent leads via video. 
+    
+    ARCHITECTURAL INTENT:
+    - Step 1 (Identification): Captures lead contact info (Name, Phone).
+    - Step 2 (Payload): Captures the high-value asset (Video) and context (Description). 
+      - This step initiates an asynchronous, side-effect-heavy upload to Cloudinary.
+      - Uses chunked uploading for files > 95MB to handle large 4K recordings.
+    - Step 3 (Confirmation): Terminal state indicating successful submission.
+
+    DATA BINDING & STATE:
+    - Widget state is managed by the `tsGoStep(n)` function toggling visibility of `.ts-step` elements.
+    - Progress is tracked via `.ts-progress-dot` classes (`active`, `done`).
+    - Form data is collected directly from DOM element IDs at the moment of submission (`tsSubmit`).
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,7 +51,7 @@
         #tradsiee-widget-root .ts-progress { display: flex; gap: 6px; margin-bottom: 24px; }
         #tradsiee-widget-root .ts-progress-dot { height: 3px; flex: 1; border-radius: 99px; background: #F2F2F7; transition: background 0.3s ease; }
         #tradsiee-widget-root .ts-progress-dot.done { background: #000; }
-        #tradsiee-widget-root .ts-progress-dot.active { background: #007AFF; }
+        #tradsiee-widget-dot.active { background: #007AFF; }
         #tradsiee-widget-root .ts-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #8E8E93; display: block; margin-bottom: 8px; }
         #tradsiee-widget-root .ts-input { width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.08); background: #F2F2F7; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 600; color: #1C1C1E; outline: none; transition: all 0.2s ease; appearance: none; }
         #tradsiee-widget-root .ts-input:focus { background: #fff; border-color: #007AFF; box-shadow: 0 0 0 3px rgba(0,122,255,0.12); }
@@ -92,6 +109,7 @@
             </div>
         </div>
 
+        <!-- UI_INFO: Progress indicator. State managed by updating .ts-progress-dot classes via tsGoStep. -->
         <div class="ts-progress">
             <div class="ts-progress-dot active" id="prog-1"></div>
             <div class="ts-progress-dot" id="prog-2"></div>
@@ -99,6 +117,8 @@
         </div>
 
         <!-- Step 1: Details -->
+        <!-- UI_INFO: Identity collection layer. Data bound to ts-first, ts-last, ts-dial, ts-phone. 
+             State transition triggered by 'Continue' button to step 2. -->
         <div class="ts-step active" id="step-1">
             <div class="ts-stack">
                 <div>
@@ -119,6 +139,9 @@
         </div>
 
         <!-- Step 2: Video -->
+        <!-- UI_INFO: Payload collection layer. Handles binary data (video) and text context (description).
+             Side-effect: Triggers background upload to Cloudinary immediately upon file selection. 
+             Binds to ts-file-input and ts-desc. -->
         <div class="ts-step" id="step-2">
             <div class="ts-stack">
                 <div class="ts-upload-zone" id="ts-upload-zone">
@@ -130,6 +153,7 @@
                     <div class="ts-upload-sub">4K supported, up to 200MB</div>
                 </div>
 
+                <!-- UI_INFO: Reactive feedback for the background upload side-effect. -->
                 <div class="ts-upload-progress" id="ts-upload-progress">
                     <div class="ts-upload-progress-track"><div class="ts-upload-progress-fill" id="ts-progress-fill"></div></div>
                     <div class="ts-upload-progress-meta"><span id="ts-progress-status">Uploading…</span><span id="ts-progress-pct">0%</span></div>
@@ -150,6 +174,7 @@
         </div>
 
         <!-- Step 3: Success -->
+        <!-- UI_INFO: Terminal success state. Displayed after back-end API confirms lead ingestion. -->
         <div class="ts-step" id="step-3">
             <div class="ts-success">
                 <div class="ts-success-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/></svg></div>
@@ -162,6 +187,10 @@
 </div>
 
 <script>
+    // [AI_INFO] This script handles the lead submission widget logic, including wizard navigation, media upload, and API communication.
+    // [AI_FLOW] Input: Customer identity (Name/Phone), Video binary, Description. Output: Lead record in Tradsiee backend via POST /submit-lead-data/{slug}.
+    // [AI_SIDE_EFFECT] Unsigned direct upload to Cloudinary (Single or Chunked based on size), XHR progress tracking, DOM manipulation for wizard state.
+
     const TS_API = window.location.origin.includes('127.0.0.1') || window.location.origin.includes('localhost')
         ? "http://127.0.0.1:8000"
         : window.location.origin;
@@ -191,6 +220,10 @@
     let tsUploadPromise = null;
     let tsUploadResult  = null;
 
+    /**
+     * [AI_INFO] Transitions the UI between wizard steps.
+     * [AI_FLOW] Toggles 'active' class on step containers and updates progress dot visual state.
+     */
     function tsGoStep(n) {
         tsLog(`Navigating to Step ${n}`);
         document.querySelectorAll('.ts-step').forEach((s, i) => s.classList.toggle('active', i + 1 === n));
@@ -200,6 +233,10 @@
         });
     }
 
+    /**
+     * [AI_INFO] Handles file selection and initiates the upload lifecycle.
+     * [AI_SIDE_EFFECT] Revokes/Creates Object URLs for video preview, triggers tsStartUpload().
+     */
     function tsHandleFile(input) {
         tsFileToUpload = input.files[0];
         if (!tsFileToUpload) return;
@@ -210,6 +247,10 @@
         tsStartUpload();
     }
 
+    /**
+     * [AI_INFO] Standard single-stream XHR upload for smaller files.
+     * [AI_FLOW] Input: FormData with file and preset. Output: Cloudinary JSON response with secure_url.
+     */
     function tsUploadSingle(fill, pct, status) {
         return new Promise((resolve, reject) => {
             tsLog("Starting Single-Stream Upload...");
@@ -248,6 +289,11 @@
         });
     }
 
+    /**
+     * [AI_INFO] Chunked upload strategy for large assets (>95MB).
+     * [AI_FLOW] Splits file into 32MB chunks and sends sequentially with Content-Range headers.
+     * [AI_SIDE_EFFECT] Multiple sequential HTTP POST requests to Cloudinary.
+     */
     async function tsUploadChunked(fill, pct, status) {
         const CHUNK = 32 * 1024 * 1024; // 32MB
         const total = tsFileToUpload.size;
@@ -306,6 +352,10 @@
         return lastRes;
     }
 
+    /**
+     * [AI_INFO] Orchestrates the upload process, selecting between single and chunked strategies.
+     * [AI_FLOW] Validates config, prepares UI progress bars, and executes the selected upload promise.
+     */
     async function tsStartUpload() {
         if (!tsFileToUpload) return;
         
@@ -353,6 +403,11 @@
         });
     }
 
+    /**
+     * [AI_INFO] Finalizes the lead submission by sending all collected data to the Tradsiee backend.
+     * [AI_FLOW] 1. Awaits pending upload promise. 2. Aggregates identity + video_url + description. 3. POSTs to /submit-lead-data.
+     * [AI_SIDE_EFFECT] Disables UI to prevent double-submission, updates step to terminal success (3).
+     */
     async function tsSubmit() {
         if (!tsFileToUpload) return alert('Please record or select a video first.');
 
@@ -399,4 +454,5 @@
     }
 </script>
 </body>
+</html></body>
 </html>

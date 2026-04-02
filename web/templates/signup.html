@@ -1,3 +1,18 @@
+<!-- 
+AI_INFO: This file handles the multi-step user registration and phone verification flow for Tradsiee.
+ARCHITECTURAL_INTENT: 
+1. Multi-step progressive disclosure form (Step 1: Account Info, Step 2: SMS Verification, Step 3: Success).
+2. Uses CSS transitions for smooth view switching, maintaining a Single Page Application (SPA) feel.
+3. Implements real-time password strength validation and OTP (One-Time Password) input masking.
+4. Orchestrates sequential API calls: /register -> /send-verification -> /verify-code -> /login (auto-login).
+SECURITY_POSTURE: 
+- Implements SMS-based 2FA (Two-Factor Authentication) as part of the sign-up process.
+- Performs client-side validation before sensitive data transmission.
+- Uses sessionStorage and localStorage for transient state during the multi-step process.
+DATA_BINDING:
+- Manual DOM-to-Object mapping for registration payloads.
+- Dynamic UI updates (Timer, Progress Dots, Error States) driven by script logic.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -415,36 +430,42 @@
 </head>
 <body>
 
+    <!-- Ambient orbs: Purely aesthetic background elements -->
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
 
+    <!-- Full Screen Loader: Blocking UI element for sequential API operations (Registration -> Verification -> Login) -->
     <div id="loader">
         <div class="l-ring"></div>
         <span id="loader-label">Creating account…</span>
     </div>
 
+    <!-- Toast Container: Dynamic notification anchor for ephemeral feedback messages -->
     <div id="toast-container"></div>
 
     <div class="container">
 
-        <!-- Logo -->
+        <!-- Logo: Brand identification and visual anchor -->
         <div class="logo-wrap">
             <div class="logo-mark">B</div>
             <span class="logo-name">Tradsiee</span>
         </div>
 
-        <!-- Card -->
+        <!-- Card: Central container for multi-step registration logic -->
         <div class="card">
 
-            <!-- Progress dots -->
+            <!-- Progress dots: Visual indicator of registration state progression -->
             <div class="step-progress">
                 <div class="step-dot active" id="dot-1"></div>
                 <div class="step-dot" id="dot-2"></div>
                 <div class="step-dot" id="dot-3"></div>
             </div>
 
-            <!-- ── Step 1: Account details ── -->
+            <!-- ── Step 1: Account details ──
+                 PURPOSE: Collection of primary user/business credentials.
+                 BINDING: Links business name, email, phone (with country code), and password to register() logic.
+            -->
             <div id="step-1" class="view active">
                 <div class="heading">
                     <div class="step-pill">Step <span>1</span> of 2</div>
@@ -498,7 +519,10 @@
                 </div>
             </div>
 
-            <!-- ── Step 2: Phone Verification ── -->
+            <!-- ── Step 2: Phone Verification ──
+                 PURPOSE: Validation of phone ownership via SMS OTP.
+                 BINDING: Links #verify-code to verifyCode() logic; includes dynamic resend timer.
+            -->
             <div id="step-2" class="view">
                 <div class="heading" style="margin-bottom:20px;">
                     <div class="step-pill">Step <span>2</span> of 2</div>
@@ -535,9 +559,12 @@
                 </div>
             </div>
 
-            <!-- ── Step 3: Success ── -->
+            <!-- ── Step 3: Success ──
+                 PURPOSE: Positive reinforcement state and transition to authenticated dashboard.
+                 BINDING: Statistically static; represents transition to portal state.
+            -->
             <div id="step-3" class="view">
-                <div style="text-align:center; padding: 16px 0 8px;">
+                <div style="text-align:center; padding: 166px 0 8px;">
                     <div style="width:64px;height:64px;background:rgba(52,199,89,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
                         <svg width="30" height="30" fill="none" stroke="#34C759" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
@@ -550,18 +577,27 @@
 
         </div>
 
+        <!-- Footer: Secondary navigation for existing users -->
         <p class="footer-link">
             Already have an account? <a href="[[PATH_LOGIN]]">Sign in</a>
         </p>
     </div>
 
     <script>
+        // [AI_INFO] Orchestrates the multi-step registration flow, validation, and session establishment.
+
+        // [AI_INFO] Environment-aware API base URL configuration.
         const API_BASE = window.location.origin.includes('127.0.0.1') || window.location.origin.includes('localhost')
             ? "http://127.0.0.1:8000"
             : window.location.origin;
+        
+        // [AI_INFO] Persistent interval reference for the SMS resend countdown.
         let timerInterval = null;
 
-        // ── Toast ──
+        // ── Toast System ──
+        // [AI_INFO] Renders ephemeral UI feedback notifications.
+        // [AI_FLOW] Input: Message, Type, Duration. Output: DOM element injection and scheduled removal.
+        // [AI_SIDE_EFFECT] Modifies #toast-container; uses setTimeout for lifecycle management.
         function toast(message, type = 'error', duration = 4000) {
             const icons = { error: '✕', success: '✓', info: 'i' };
             const el = document.createElement('div');
@@ -575,6 +611,9 @@
         }
 
         // ── Step navigation ──
+        // [AI_INFO] Manages the visibility and animation of the multi-step registration views.
+        // [AI_FLOW] Input: Step number (n). Output: Progress dot updates and CSS-driven view transitions.
+        // [AI_SIDE_EFFECT] Modifies classes of .view and .step-dot elements.
         function goToStep(n) {
             const dots = [document.getElementById('dot-1'), document.getElementById('dot-2'), document.getElementById('dot-3')];
             dots.forEach((d, i) => {
@@ -595,6 +634,8 @@
             }
         }
 
+        // [AI_INFO] Specialized backward navigation with reverse animation.
+        // [AI_SIDE_EFFECT] Dynamically injects/removes temporary CSS for reverse animations.
         function goBack() {
             // Animate right to left (reverse)
             const style = document.createElement('style');
@@ -606,6 +647,9 @@
         }
 
         // ── Password strength ──
+        // [AI_INFO] Real-time password complexity analysis and UI feedback.
+        // [AI_FLOW] Input: Password string (p). Output: Dynamic update of strength bar width, color, and label.
+        // [AI_SIDE_EFFECT] Modifies #strength-fill and #strength-label styling.
         function checkStrength(p) {
             const wrap = document.getElementById('strength-wrap');
             const fill = document.getElementById('strength-fill');
@@ -636,6 +680,8 @@
         }
 
         // ── OTP input — filter non-numeric, auto-submit at 6 ──
+        // [AI_INFO] Input sanitizer and auto-submission trigger for the verification code.
+        // [AI_FLOW] Input: DOM Input event. Output: Sanitized value and conditional execution of verifyCode().
         function onOtpInput(input) {
             input.value = input.value.replace(/\D/g, '');
             input.classList.remove('error');
@@ -643,6 +689,9 @@
         }
 
         // ── Resend timer ──
+        // [AI_INFO] Enforces a rate-limiting delay between SMS verification attempts.
+        // [AI_FLOW] Output: Incremental UI updates every 1000ms until timeout.
+        // [AI_SIDE_EFFECT] Sets/Clears window.setInterval; toggles visibility of #timer-text and #resend-btn.
         function startTimer() {
             let t = 30;
             document.getElementById('timer-count').textContent = t;
@@ -661,6 +710,8 @@
             }, 1000);
         }
 
+        // [AI_INFO] Orchestrates code re-sending via the backend API.
+        // [AI_SIDE_EFFECT] API call to /send-verification; restarts UI timer.
         async function resendCode() {
             const phone = localStorage.getItem('temp_phone');
             if (!phone) return;
@@ -680,6 +731,9 @@
         }
 
         // ── Step 1: Register ──
+        // [AI_INFO] Initiates account creation and triggers verification SMS.
+        // [AI_FLOW] Input: User credentials from Step 1 UI. Output: Persistence of temp state and UI transition to Step 2.
+        // [AI_SIDE_EFFECT] API calls to /register and /send-verification; modifications to localStorage/sessionStorage.
         async function register() {
             const name     = document.getElementById('biz-name').value.trim();
             const email    = document.getElementById('biz-email').value.trim();
@@ -756,6 +810,9 @@
         }
 
         // ── Step 2: Verify OTP ──
+        // [AI_INFO] Validates OTP and finalizes registration with automated session establishment.
+        // [AI_FLOW] Input: 6-digit OTP. Output: Session persistence (token/slug) and redirection to portal.
+        // [AI_SIDE_EFFECT] API calls to /verify-code and /login; modifications to localStorage; window redirection.
         async function verifyCode() {
             const code  = document.getElementById('verify-code').value.trim();
             const phone = localStorage.getItem('temp_phone');
@@ -831,7 +888,8 @@
             }
         }
 
-        // Clear error states on input
+        // [AI_INFO] Event listener orchestration for real-time validation feedback clearing.
+        // [AI_SIDE_EFFECT] Removes 'error' class from input and select elements upon user interaction.
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('input', () => el.classList.remove('error'));
         });

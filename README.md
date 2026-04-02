@@ -56,18 +56,24 @@ Tradsiee helps tradespeople understand jobs before they arrive. Customers record
     ```
 3.  **Run the backend:**
     ```bash
-    uvicorn main:app --reload
+    uvicorn app.main:app --reload
     ```
 4.  **Serve the frontend:**
-    Open the HTML files using a local server (e.g., Live Server in VS Code).
+    The backend automatically serves the templates from `web/templates/`. For development, you can open them directly via a local server pointing to the root.
 
 ---
 
-## Project Structure
+## 📂 Project Structure
 
-- `main.py`: FastAPI application & API routes.
-- `portal.html`: The Tradie dashboard.
-- `index.html`: The lead capture widget.
-- `login.html` / `signup.html`: Authentication flow.
-- `tasks.py`: Background tasks and helper functions.
+- **`app/`**: Core Python package.
+  - `main.py`: Entry point for the FastAPI application.
+  - `api/`: Route handlers and controllers.
+  - `services/`: Business logic and background tasks.
+  - `models/` & `schemas/`: Data structures and Pydantic models.
+- **`web/`**: Frontend assets.
+  - `templates/`: HTML user interfaces.
+  - `static/`: JavaScript, CSS, and images.
+- **`tests/`**: Unit and integration test suite.
+- **`docs/`**: Project documentation and business strategy.
+
 

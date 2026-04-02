@@ -19,17 +19,18 @@ Tradsiee is a video-first lead generation platform designed to bridge the gap be
    - Video → Cloudinary (Direct Upload)
    - Lead Metadata → Supabase `leads` table
    - SMS Alert → Tradie (Twilio)
-4. **The Portal:** A protected interface (`portal.html`) where tradies manage leads and view analytics.
+4. **The Portal:** A protected interface (`web/templates/portal.html`) where tradies manage leads and view analytics.
+5. **Asset Serving:** `app/main.py` serves assets from the `web/` directory.
 
 ## Setup & Execution
-- **Environment:** Requires `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `CLOUDINARY_URL`, and `TWILIO_SID/AUTH`.
-- **Backend Start:** `uvicorn main:app --reload`
-- **Frontend Start:** Static file hosting on port 5500 (default for many dev servers).
+- **Environment:** Requires `.env` in the root with `SUPABASE_URL`, `SUPABASE_KEY`, `CLOUDINARY_URL`, etc.
+- **Backend Start:** `uvicorn app.main:app --reload` (run from the root directory).
+- **Frontend Start:** Static file hosting on port 5500 (pointing to the `web/` directory).
 
 ## Code Conventions
-- **Validation:** Pydantic models in `main.py`.
+- **Modularization:** Logic is split into `app/services`, `app/api`, etc.
+- **Validation:** Pydantic models in `app/schemas`.
 - **Security:** `HTTPBearer` for JWT verification against Supabase.
-- **Styling:** Rapid UI development using Utility-first CSS (Tailwind).
 
 ## Roadmap
 - [ ] Comprehensive test suite for FastAPI routes.

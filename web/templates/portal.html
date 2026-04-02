@@ -1,3 +1,18 @@
+<!-- AI_INFO:
+    This file serves as the primary Workspace Portal for Tradsiee. It is a Single Page Application (SPA) style template
+    that manages lead processing, business settings, and widget installation.
+
+    ARCHITECTURAL INTENT:
+    - State Management: Uses a central 'state' object synchronized with localStorage and the backend API.
+    - View Switching: Employs a 'switchView' mechanism to toggle visibility of .view-section elements without page reloads.
+    - Real-time Feel: Implements an auto-refresh timer and manual sync triggers to keep lead data fresh.
+    - Interactivity: Uses SortableJS for Kanban-style drag-and-drop lead status transitions.
+    - Communication: Facilitates customer contact via 'sms:' and 'tel:' protocols with pre-defined templates.
+
+    DATA BINDING STRATEGY:
+    - Reactive-ish: UI updates are triggered by 'renderData' and 'updateUI' calls following state mutations.
+    - Cache-First: Loads from localStorage on initialization to provide instant visual feedback while fetching fresh data.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -626,9 +641,17 @@
 <div class="orb orb-3"></div>
 
 <div class="app-shell">
+    <!-- AI_COMPONENT: app-shell
+         Purpose: Main grid container for the entire application.
+         Data Binding: Wraps all view-sections. Switches layout based on media queries (1024px).
+    -->
 
     <!-- Mobile Nav -->
     <nav class="mobile-nav">
+        <!-- AI_COMPONENT: mobile-nav
+             Purpose: Bottom navigation bar for mobile/tablet users.
+             Data Binding: Buttons trigger 'switchView' which updates 'state.currentView'.
+        -->
         <div class="m-nav-item active" id="m-nav-pipeline" onclick="switchView('pipeline')">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
             Pipeline
@@ -645,6 +668,10 @@
 
     <!-- Sidebar -->
     <aside class="sidebar">
+        <!-- AI_COMPONENT: sidebar
+             Purpose: Desktop navigation and global workspace state indicators.
+             Data Binding: Contains nav items and the credits-pill.
+        -->
         <div class="sidebar-logo">
             <div class="mark">B</div>
             <span>Tradsiee</span>
@@ -668,6 +695,10 @@
 
         <!-- Credits widget -->
         <div class="credits-pill">
+            <!-- AI_COMPONENT: credits-pill
+                 Purpose: Visual display of remaining leads/subscription status.
+                 Data Binding: Updates 'credits-bar' width and 'credits-num' text via 'updateUI' based on 'state.credits'.
+            -->
             <div class="plan-header">
                 <span class="plan-badge">Unlimited Access</span>
             </div>
@@ -686,9 +717,17 @@
 
     <!-- Main -->
     <div class="main-stage">
+        <!-- AI_COMPONENT: main-stage
+             Purpose: Scrollable viewport for the active application view.
+             Data Binding: Hosts all .view-section divs.
+        -->
 
         <!-- Topbar -->
         <div class="topbar">
+            <!-- AI_COMPONENT: topbar
+                 Purpose: Contextual header showing view title and sync status.
+                 Data Binding: Updates 'view-title' and 'view-sub' via 'switchView'. 'sync-dot' pulses during 'refresh'.
+            -->
             <div class="topbar-left">
                 <h1 id="view-title">Pipeline</h1>
                 <p id="view-sub">Your active leads, live.</p>
@@ -706,6 +745,10 @@
 
         <!-- Pipeline View -->
         <div id="view-pipeline" class="view-section active">
+            <!-- AI_COMPONENT: view-pipeline
+                 Purpose: Kanban board for lead management.
+                 Data Binding: Dynamically populated by 'renderPipeline' using 'state.leads'.
+            -->
             <div class="pipeline-cols">
                 <div style="display:flex;flex-direction:column;overflow:hidden;min-width:0;">
                     <div class="col-header">
@@ -726,11 +769,19 @@
 
         <!-- Archive View -->
         <div id="view-archive" class="view-section">
+            <!-- AI_COMPONENT: view-archive
+                 Purpose: List of archived/completed leads.
+                 Data Binding: Dynamically populated by 'renderArchive' using 'state.leads'.
+            -->
             <div class="archive-wrap" id="archive-container"></div>
         </div>
 
         <!-- Settings View -->
         <div id="view-settings" class="view-section">
+            <!-- AI_COMPONENT: view-settings
+                 Purpose: Configuration for business identity and widget deployment.
+                 Data Binding: Updates 'set-bizname', 'set-slug-display', and 'embed-code' via 'updateUI'.
+            -->
             <div class="settings-grid">
 
                 <!-- Display Preferences -->
@@ -845,6 +896,10 @@
 <!-- SMS Modal -->
 <div class="modal-backdrop" id="sms-modal" onclick="closeModal()">
     <div class="modal" onclick="event.stopPropagation()">
+        <!-- AI_COMPONENT: sms-modal
+             Purpose: Contact interface for customer engagement.
+             Data Binding: Populated by 'openSMS' with customer name, phone, and predefined message templates.
+        -->
         <div class="modal-title">Message <span id="modal-name">—</span></div>
         <div class="modal-sub" id="modal-phone">—</div>
         <div id="modal-templates"></div>
@@ -855,6 +910,10 @@
 <!-- Delete Modal -->
 <div class="modal-backdrop" id="delete-modal" onclick="closeDeleteModal()">
     <div class="modal" onclick="event.stopPropagation()">
+        <!-- AI_COMPONENT: delete-modal
+             Purpose: High-friction account deletion verification.
+             Data Binding: Uses 'delete-input-slug' for confirmation and 'delete-input-code' for MFA.
+        -->
         <div class="modal-title" style="color:var(--red);">Confirm Deletion</div>
         <p style="font-size:13px;color:var(--muted);margin-top:6px;margin-bottom:22px;line-height:1.6;">
             This will permanently delete your account. Type your slug <strong id="delete-confirm-slug" style="color:var(--text);"></strong> and enter the verification code.
@@ -877,9 +936,14 @@
 </div>
 
 <script>
+    // [AI_INFO] This script manages the core application state, API synchronization, and dynamic UI rendering for the Portal.
+    // [AI_FLOW] Input: LocalStorage (token, slug), API responses (/get-leads). Output: Rendered lead cards, updated credits, view toggles.
+    // [AI_SIDE_EFFECT] Modifies LocalStorage, triggers Toast notifications, manipulates DOM based on state, makes API calls.
+
     const API = window.location.origin.includes('127.0.0.1') || window.location.origin.includes('localhost')
         ? "http://127.0.0.1:8000"
         : window.location.origin;
+
     const state = {
         slug: localStorage.getItem('tradsiee_slug'),
         token: localStorage.getItem('tradsiee_token'),
@@ -961,6 +1025,9 @@
     }
 
     async function refresh(silent = false) {
+        // [AI_INFO] Syncs local state with backend lead data.
+        // [AI_FLOW] GET /get-leads/{slug} -> Update state.leads, state.credits, state.bizName -> Trigger re-render.
+        // [AI_SIDE_EFFECT] Network request, LocalStorage update (cache), DOM updates via renderData/updateUI.
         if (!silent) setSync(true);
         try {
             const res = await fetch(`${API}/get-leads/${encodeURIComponent(state.slug)}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
@@ -1010,6 +1077,7 @@
     function manualRefresh() { refresh(false); showToast('Syncing your workspace...'); }
 
     function updateUI() {
+        // [AI_INFO] Updates static UI elements that don't depend on lead lists (credits, business name, embed code).
         const num = document.getElementById('credits-num');
         if (num) num.innerHTML = `Unlimited`;
 
@@ -1038,6 +1106,8 @@
     }
 
     function renderPipeline() {
+        // [AI_INFO] Renders the Kanban board columns based on lead status.
+        // [AI_FLOW] Filter state.leads (non-archived) -> Map to columns -> buildCard() for each.
         const colNew = document.getElementById('col-new');
         const colWork = document.getElementById('col-working');
         if(!colNew || !colWork) return;
@@ -1067,6 +1137,8 @@
     }
 
     function buildCard(l) {
+        // [AI_INFO] Generates the HTML for a single lead card.
+        // [AI_FLOW] Lead Object -> Interactive card with Video, SMS, Call, and Status actions.
         const div = document.createElement('div');
         div.className = 'lead-card';
         div.setAttribute('data-id', l.id);
@@ -1115,6 +1187,9 @@
     }
 
     function initSortable() {
+        // [AI_INFO] Initializes drag-and-drop functionality for Kanban columns.
+        // [AI_FLOW] Drag End -> Calculate new status -> updateStatus().
+        // [AI_SIDE_EFFECT] DOM manipulation (SortableJS), API calls via updateStatus.
         const cfg = {
             group: 'pipeline', animation: 280,
             easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -1147,6 +1222,7 @@
     }
 
     function renderArchive() {
+        // [AI_INFO] Renders the completed leads list.
         const c = document.getElementById('archive-container');
         if(!c) return;
         c.innerHTML = '';
@@ -1178,6 +1254,9 @@
     }
 
     async function updateStatus(id, s) {
+        // [AI_INFO] Persists status changes to the backend.
+        // [AI_FLOW] Update state.leads locally -> PATCH /update-lead-status/{id} -> Show Toast.
+        // [AI_SIDE_EFFECT] Network request, state mutation, Toast notification.
         const l = state.leads.find(x => String(x.id) === String(id));
         if (l) l.status = s;
         renderData();
@@ -1200,6 +1279,8 @@
     }
 
     function openSMS(id) {
+        // [AI_INFO] Populates and opens the SMS modal with contextual templates.
+        // [AI_FLOW] Find Lead -> Update Modal DOM -> Show Modal.
         const l = state.leads.find(x => String(x.id) === String(id));
         if (!l) return;
         const phone = sanitizePhone(l.customer_phone);
@@ -1225,6 +1306,8 @@
     function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('open'); }
 
     async function sendDeleteCode() {
+        // [AI_INFO] Requests an MFA code for account deletion.
+        // [AI_FLOW] POST /send-delete-code -> Update button state -> Wait for code.
         const btn = document.getElementById('send-del-code-btn');
         btn.disabled = true; btn.textContent = 'Sending…';
         try {
@@ -1235,6 +1318,8 @@
     }
 
     async function executeDelete() {
+        // [AI_INFO] Finalizes account deletion.
+        // [AI_FLOW] Validate Slug + Code -> DELETE /delete-account/{slug} -> Logout.
         const slug = document.getElementById('delete-input-slug').value.trim();
         const code = document.getElementById('delete-input-code').value.trim();
         if (slug !== state.slug) { showToast('Slug mismatch.', 'error'); return; }
@@ -1247,6 +1332,7 @@
     }
 
     async function copyEmbed() {
+        // [AI_INFO] Copies the widget loader code to the clipboard.
         const code = document.getElementById('embed-code').textContent;
         try {
             await navigator.clipboard.writeText(code);
@@ -1260,6 +1346,8 @@
     }
 
     function switchView(v) {
+        // [AI_INFO] Handles SPA view transitions.
+        // [AI_FLOW] Update state.currentView -> Toggle visibility of .view-section elements -> Update active Nav states -> re-render.
         state.currentView = v;
         ['pipeline', 'archive', 'settings'].forEach(n => {
             if(document.getElementById(`nav-${n}`)) document.getElementById(`nav-${n}`).classList.toggle('active', n === v);

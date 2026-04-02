@@ -1,3 +1,18 @@
+<!-- 
+AI_INFO: This file serves as the primary authentication entry point for the Tradsiee platform.
+ARCHITECTURAL_INTENT: 
+1. Single Page Application (SPA) behavior within a single HTML file using CSS-based view switching.
+2. State management is handled via DOM manipulation and local variable tracking.
+3. Authentication state is persisted in localStorage (tradsiee_token, tradsiee_slug) upon successful login.
+4. UI/UX focuses on high-fidelity feedback using a custom Toast system and full-screen loaders.
+SECURITY_POSTURE: 
+- Implements credential-based authentication.
+- Uses HTTPS (assumed via API_BASE) for data transmission.
+- Token-based session management following the login event.
+DATA_BINDING:
+- Manual binding from input values to JSON payloads in fetch calls.
+- One-way binding from API responses to UI state (errors, redirects, view changes).
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -447,32 +462,35 @@
 </head>
 <body>
 
-    <!-- Ambient orbs -->
+    <!-- Ambient orbs: Purely aesthetic background elements -->
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
 
-    <!-- Full Screen Loader -->
+    <!-- Full Screen Loader: Blocking UI element for async authentication operations -->
     <div id="loader">
         <div class="l-ring"></div>
         <span>Signing in…</span>
     </div>
 
-    <!-- Toast Container -->
+    <!-- Toast Container: Dynamic notification anchor for ephemeral feedback messages -->
     <div id="toast-container"></div>
 
     <div class="container">
 
-        <!-- Logo -->
+        <!-- Logo: Brand identification and visual anchor -->
         <div class="logo-wrap">
             <div class="logo-mark">B</div>
             <span class="logo-name">Tradsiee</span>
         </div>
 
-        <!-- Card -->
+        <!-- Card: Central container for multi-view authentication logic -->
         <div class="card">
 
-            <!-- ── Login View ── -->
+            <!-- ── Login View ──
+                 PURPOSE: Initial user identification and credential collection.
+                 BINDING: Links #email and #password inputs to the login() execution scope.
+            -->
             <div id="login-view" class="view active">
                 <div class="heading">
                     <h2>Welcome back.</h2>
@@ -498,7 +516,10 @@
                 </button>
             </div>
 
-            <!-- ── Forgot Password View ── -->
+            <!-- ── Forgot Password View ──
+                 PURPOSE: Recovery flow initiation via email address.
+                 BINDING: Links #reset-email to handleReset() logic.
+            -->
             <div id="forgot-view" class="view">
                 <button class="back-btn" onclick="switchTo('login')">
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -523,7 +544,10 @@
                 </button>
             </div>
 
-            <!-- ── Sent Confirmation View ── -->
+            <!-- ── Sent Confirmation View ──
+                 PURPOSE: Final feedback state for the recovery flow.
+                 BINDING: Statistically static, provides navigation back to primary login state.
+            -->
             <div id="sent-view" class="view">
                 <div style="text-align:center; padding: 8px 0;">
                     <div class="check-circle">
@@ -539,7 +563,7 @@
 
         </div>
 
-        <!-- Footer -->
+        <!-- Footer: Secondary navigation for user conversion -->
         <p class="footer-link">
             New to Tradsiee? <a href="[[PATH_SIGNUP]]">Create an account</a>
         </p>
@@ -547,11 +571,17 @@
     </div>
 
     <script>
+        // [AI_INFO] This script handles authentication flow, view management, and API orchestration.
+        
+        // [AI_INFO] Constants definition for environment-aware API targeting.
         const API_BASE = window.location.origin.includes('127.0.0.1') || window.location.origin.includes('localhost')
             ? "http://127.0.0.1:8000"
             : window.location.origin;
 
         // ── Toast System ──
+        // [AI_INFO] Utility for rendering ephemeral notifications.
+        // [AI_FLOW] Input: Message string, Type enum ('error', 'success', 'info'), Duration. Output: DOM injection of toast element.
+        // [AI_SIDE_EFFECT] Modifies the DOM by appending elements to #toast-container and scheduling their removal.
         function toast(message, type = 'error', duration = 4000) {
             const icons = {
                 error:   '✕',
@@ -576,6 +606,9 @@
         }
 
         // ── View Switcher ──
+        // [AI_INFO] Facilitates SPA-style transitions between logical authentication states.
+        // [AI_FLOW] Input: Target view ID. Output: CSS classes update on DOM elements to trigger animations and visibility.
+        // [AI_SIDE_EFFECT] Modifies classes of .view elements; relies on setTimeout for animation timing coordination.
         function switchTo(view) {
             const views = ['login', 'forgot', 'sent'];
             const activeEl = document.querySelector('.view.active');
@@ -592,6 +625,9 @@
         }
 
         // ── Login ──
+        // [AI_INFO] Primary authentication handler orchestrating credential validation and session establishment.
+        // [AI_FLOW] Input: User-provided credentials from DOM. Output: LocalStorage persistence of session data and window redirection.
+        // [AI_SIDE_EFFECT] API call to /login, modifications to localStorage, manipulation of #loader and button states.
         async function login() {
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
@@ -646,6 +682,9 @@
         }
 
         // ── Reset Password ──
+        // [AI_INFO] Initiates the backend password recovery process.
+        // [AI_FLOW] Input: Recovery email from DOM. Output: UI transition to confirmation state on success.
+        // [AI_SIDE_EFFECT] API call to /forgot-password, UI state modifications (spinners, buttons, view switching).
         async function handleReset() {
             const email = document.getElementById('reset-email').value.trim();
             const btn = document.getElementById('reset-btn');
@@ -686,6 +725,8 @@
         }
 
         // ── Clear error state on input ──
+        // [AI_INFO] Event listener orchestration for real-time validation feedback clearing.
+        // [AI_SIDE_EFFECT] Removes 'error' class from input elements upon user interaction.
         document.querySelectorAll('input').forEach(input => {
             input.addEventListener('input', () => input.classList.remove('error'));
         });
