@@ -9,7 +9,7 @@ Tradsiee is a video-first lead generation platform designed to bridge the gap be
 - **API Framework:** FastAPI (Python)
 - **Persistence & Auth:** Supabase (PostgreSQL + GoTrue)
 - **Media Management:** Cloudinary (Unsigned client-side uploads)
-- **Communications:** Twilio SMS API
+- **Communications:** Twilio SMS API + Resend SMTP (Transactional Email)
 - **UI/UX:** Tailwind CSS (CDN), Vanilla JavaScript, Chart.js
 
 ## System Workflow
@@ -19,6 +19,7 @@ Tradsiee is a video-first lead generation platform designed to bridge the gap be
    - Video → Cloudinary (Direct Upload)
    - Lead Metadata → Supabase `leads` table
    - SMS Alert → Tradie (Twilio)
+   - Identity Verification → Resend (via Supabase SMTP)
 4. **The Portal:** A protected interface (`web/templates/portal.html`) where tradies manage leads and view analytics.
 5. **Asset Serving:** `app/main.py` serves assets from the `web/` directory.
 

@@ -356,12 +356,21 @@ This file handles the multi-step user registration and phone verification flow f
 
             <!-- [STEP_3: SUCCESS_TERMINATION] -->
             <div id="step-3" class="view">
-                <div style="text-align:center; padding: 100px 0 20px;">
-                    <div style="width:64px;height:64px;background:rgba(52,199,89,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
-                        <svg width="30" height="30" fill="none" stroke="#34C759" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                <div style="text-align:center; padding: 40px 0 20px;">
+                    <div style="width:72px;height:72px;background:var(--blue-light);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;">
+                        <svg width="34" height="34" fill="none" stroke="var(--blue)" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     </div>
-                    <h2>You're in!</h2>
-                    <p>Setting up your workspace...</p>
+                    <h2 style="margin-bottom:12px;">Confirm Your Email</h2>
+                    <p style="font-size:14px; color:var(--text); line-height:1.6; margin-bottom:32px; opacity:0.8;">
+                        We've sent a <b>verification link</b> to your inbox. Please click the link to activate your account and continue.
+                    </p>
+                    
+                    <div style="background: var(--blue-bg); padding: 20px; border-radius: 20px; border: 1.5px solid var(--blue);">
+                        <div style="font-size: 12px; font-weight: 800; color: var(--blue); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Waiting for Verification</div>
+                        <p style="font-size: 13px; font-weight: 600; color: var(--text); opacity: 0.7;">
+                            Check your inbox (and spam folder) for the confirmation email from Tradsiee.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -502,7 +511,6 @@ This file handles the multi-step user registration and phone verification flow f
                     const lData = await lRes.json();
                     localStorage.setItem('tradsiee_slug', lData.slug);
                     localStorage.setItem('tradsiee_token', lData.access_token);
-                    setTimeout(() => { window.location.href = '[[PATH_PORTAL]]'; }, 1000);
                 } else { toast('Invalid code'); }
             } catch { toast('Error'); }
             btn.disabled = false;

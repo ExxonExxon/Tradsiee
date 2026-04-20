@@ -279,7 +279,10 @@ orchestrating login, password recovery, and session establishment.
                     body: JSON.stringify({ email, password })
                 });
                 const data = await res.json();
-                if (res.ok) {
+                
+                // [UNVERIFIED_STATE_HANDLING]
+                // Allow login even if email isn't confirmed; the Portal will show the banner.
+                if (res.ok || res.status === 403) {
                     localStorage.setItem('tradsiee_slug', data.slug);
                     localStorage.setItem('tradsiee_token', data.access_token);
                     setTimeout(() => { window.location.href = '[[PATH_PORTAL]]'; }, 500);

@@ -509,6 +509,16 @@
 <div class="orb orb-3"></div>
 
 <div class="app-shell">
+    <!-- [COMPONENT: VERIFICATION_BANNER] 
+         Visible only if the account has pending email confirmation.
+    -->
+    <div id="verification-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:2000; background:var(--orange); color:#fff; padding:10px 20px; text-align:center; font-size:13px; font-weight:700; box-shadow:0 4px 12px rgba(255,149,0,0.2);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:12px;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18" stroke-width="2.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span>Your email address is unverified. Please confirm it to fully activate your workspace.</span>
+            <button onclick="resendEmail()" id="resend-email-btn" style="background:rgba(255,255,255,0.2); border:none; padding:4px 12px; border-radius:8px; color:#fff; cursor:pointer; font-size:11px; font-weight:800; text-transform:uppercase;">Resend Email</button>
+        </div>
+    </div>
     <!-- [COMPONENT: APP_SHELL]
          Root layout controller. Manages responsive grid transitions.
     -->
@@ -817,7 +827,8 @@
         credits: 0,
         bizName: '',
         currentView: 'pipeline',
-        theme: localStorage.getItem('tradsiee_theme') || 'light'
+        theme: localStorage.getItem('tradsiee_theme') || 'light',
+        isVerified: true // Assume verified until 403 occurs
     };
 
     // [AUTH_REDIRECT_LOGIC] Ensures session presence before initialization.
@@ -832,6 +843,24 @@
     function escapeHTML(v = '') { return String(v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])); }
     function safeText(v, fallback = '—') { return (v && String(v).trim()) ? String(v).trim() : fallback; }
     function sanitizePhone(p = '') { return String(p).replace(/[^0-9+*#()-]/g, '').trim(); }
+
+    async function resendEmail() {
+        const btn = document.getElementById('resend-email-btn');
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        try {
+            const userRes = await fetch('https://' + TRADSIEE_ENV.API_BASE.split('://')[1] + '/auth/v1/user', { headers: { 'Authorization': `Bearer ${state.token}` } });
+            const user = await userRes.json();
+            const email = user.email;
+            await fetch(`${API}/resend-confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            showToast('Confirmation email sent');
+            btn.textContent = 'Email Sent';
+        } catch(e) { showToast('Resend failed', 'error'); btn.disabled = false; btn.textContent = 'Resend Email'; }
+    }
 
     function initTheme() {
         document.body.className = state.theme;
@@ -869,7 +898,25 @@
         if (!silent) setSync(true);
         try {
             const res = await fetch(`${API}/get-leads/${encodeURIComponent(state.slug)}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
+            
+            if (res.status === 403) {
+                const data = await res.json();
+                if (data.detail === 'EMAIL_NOT_VERIFIED') {
+                    state.isVerified = false;
+                    document.getElementById('verification-banner').style.display = 'block';
+                    document.body.style.paddingTop = '42px'; // Adjust layout for banner
+                }
+                setSync(false);
+                return;
+            }
+
             if (!res.ok) { if (res.status === 401) logout(); return; }
+            
+            // If we're here, we're verified
+            state.isVerified = true;
+            document.getElementById('verification-banner').style.display = 'none';
+            document.body.style.paddingTop = '0';
+
             const data = await res.json();
             state.leads = data.leads || [];
             state.credits = data.credits || 0;
@@ -1083,7 +1130,23 @@
 
     function logout() { localStorage.clear(); window.location.href = '[[PATH_LOGIN]]'; }
 
-    window.onload = () => { initTheme(); refresh(false); };
+    window.onload = () => {
+        // [SESSION_HYDRATION] 
+        // Handle Supabase Hash (happens after email confirmation redirect)
+        if (window.location.hash && window.location.hash.includes('access_token=')) {
+            const params = new URLSearchParams(window.location.hash.substring(1));
+            const token = params.get('access_token');
+            if (token) {
+                localStorage.setItem('tradsiee_token', token);
+                state.token = token;
+                // Clean the URL without reloading
+                window.history.replaceState(null, null, window.location.pathname);
+            }
+        }
+        
+        initTheme(); 
+        refresh(false); 
+    };
 </script>
 </body>
 </html>

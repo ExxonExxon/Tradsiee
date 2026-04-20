@@ -161,7 +161,8 @@ async def lifespan(app: FastAPI):
             "portal": "portal.html",
             "update-password": "update-password.html",
             "preview": "widget-preview.html",
-            "admin": "admin.html"
+            "admin": "admin.html",
+            "verified": "verified.html"
         }
         for key, filename in pages.items():
             HTML_PAGES_CACHE[key] = process_html(filename)
@@ -231,12 +232,12 @@ async def run_sync(func, *args, **kwargs):
 
 def format_phone(phone: str) -> str:
     # [PHONE_NORMALIZATION_LOGIC]
-    # Converts various phone input formats into a standardized E.164 string.
-    # Defaults to the Australian (+61) prefix if no leading country code is detected.
-    clean_phone = re.sub(r"[^\d]", "", phone)
-    if not phone.startswith("+"):
-        return f"+61{clean_phone.lstrip('0')}"
-    return f"+{clean_phone}"
+    # Remove all non-digit characters except the leading plus
+    clean = re.sub(r"[^\d+]", "", phone)
+    if not clean.startswith("+"):
+        # Default to Australia if no country code provided
+        return f"+61{clean.lstrip('0')}"
+    return clean
 
 async def generate_unique_slug(name: str) -> str:
     # [IDENTITY_SLUG_GENERATION]
@@ -262,10 +263,32 @@ async def get_current_user(auth: HTTPAuthorizationCredentials = Depends(security
         user = getattr(res, 'user', None) or (res.get('user') if isinstance(res, dict) else None)
         if not user:
             raise HTTPException(status_code=401, detail="Invalid session.")
+        
+        # [IDENTITY_SECURITY_CHECK]
+        # Prevent "Email Spoofing" by checking if the user has confirmed their identity.
+        if not getattr(user, 'email_confirmed_at', None):
+            # We return a specific error that the frontend can use to show a verification banner.
+            raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
+            
         return user
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logger.error(f"AUTH_VERIFICATION_FAILURE: {e}")
         raise HTTPException(status_code=401, detail="Authentication failed.")
+
+@app.post("/resend-confirmation")
+async def resend_confirmation(data: dict):
+    # [IDENTITY_RECOVERY]
+    # Allows users to trigger a new confirmation email if the original was lost.
+    email = data.get("email")
+    if not email: raise HTTPException(status_code=400, detail="Email required.")
+    try:
+        await run_sync(supabase.auth.resend, {"type": "signup", "email": email})
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"RESEND_FAILURE: {e}")
+        raise HTTPException(status_code=400, detail="Failed to resend email.")
 
 @app.post("/register")
 async def register_tradie(data: dict):
@@ -277,20 +300,41 @@ async def register_tradie(data: dict):
         raise HTTPException(status_code=400, detail="Missing data.")
 
     try:
-        auth_res = await run_sync(supabase.auth.sign_up, {"email": email, "password": password})
-        if not auth_res.user:
-            raise HTTPException(status_code=400, detail="Auth failed.")
-
-        new_slug = await generate_unique_slug(name)
         formatted_phone = format_phone(phone)
+        
+        # 1. Check if the Email is already in use
+        email_check = await run_sync(supabase_admin.table("tradies").select("id").eq("email", email).execute)
+        if email_check.data:
+            raise HTTPException(status_code=400, detail="This email is already registered. Please sign in.")
 
+        # 2. Check if the Phone is already in use
+        phone_check = await run_sync(supabase_admin.table("tradies").select("id").eq("phone_number", formatted_phone).execute)
+        if phone_check.data:
+            existing_user_id = phone_check.data[0]["id"]
+            # Check if that user is already verified in Supabase Auth
+            try:
+                auth_user = await run_sync(supabase_admin.auth.admin.get_user_by_id, existing_user_id)
+                if auth_user.user and auth_user.user.email_confirmed_at:
+                     raise HTTPException(status_code=400, detail="This phone number is already verified to another account.")
+            except:
+                # If auth lookup fails, assume unverified or orphaned profile
+                pass
+            
+            # If we reach here, the phone belongs to an UNVERIFIED account.
+            # We allow the new registration to proceed.
+            logger.info(f"IDENTITY_RECLAMATION_START: Phone {formatted_phone} is claiming from unverified email.")
+
+        # [STAGING]
+        new_slug = await generate_unique_slug(name)
         profile_data = {
-            "id": auth_res.user.id, "business_name": name, "email": email,
-            "phone_number": formatted_phone, "slug": new_slug, "credits": 10, "is_verified": True
+            "business_name": name, "email": email, "password": password,
+            "phone_number": formatted_phone, "slug": new_slug, "credits": 10, "is_verified": False
         }
 
         pending_registrations[formatted_phone] = profile_data
         return {"status": "success", "slug": new_slug}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logger.error(f"REGISTRATION_FAILURE: {e}")
         raise HTTPException(status_code=400, detail="Registration failed.")
@@ -298,34 +342,44 @@ async def register_tradie(data: dict):
 @app.post("/login")
 async def login(data: dict):
     # [AUTHENTICATION_PIPELINE]
-    # Validates credentials against Supabase and retrieves the associated business slug.
-    # Returns the access_token (JWT) required for all subsequent state-mutating requests.
     email, password = data.get("email"), data.get("password")
     try:
+        # If Supabase Auth is set to 'Confirm Email', this call will succeed 
+        # but the session might be limited, or it might throw 403.
         auth_res = await run_sync(supabase.auth.sign_in_with_password, {"email": email, "password": password})
-        if not auth_res.user:
-            raise HTTPException(status_code=401, detail="Auth failed.")
-
+        
+        # Get business slug
         res = await run_sync(supabase_admin.table("tradies").select("slug").eq("id", auth_res.user.id).execute)
         if not res.data:
             raise HTTPException(status_code=403, detail="Profile missing.")
 
         return {"slug": res.data[0]["slug"], "access_token": auth_res.session.access_token}
     except Exception as e:
+        msg = str(e)
+        if "Email not confirmed" in msg:
+            # We still need the slug to redirect to the portal banner.
+            # We'll search for the user by email in our tradies table.
+            tradie = await run_sync(supabase_admin.table("tradies").select("slug").eq("email", email).single().execute)
+            if tradie.data:
+                # Note: We can't return a token if Supabase blocked the login,
+                # but we can return the slug and a special status.
+                raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
+        
         logger.error(f"LOGIN_FAILURE: {e}")
         raise HTTPException(status_code=401, detail="Invalid credentials.")
 
 @app.post("/send-verification")
 async def send_verification(data: dict):
     # [MFA_CHALLENGE_DISPATCH]
-    # Dispatches a random 6-digit verification code via Twilio SMS.
-    # This code is required to finalize the registration and move profile data from memory to DB.
     phone = data.get("phone")
     if not phone: raise HTTPException(status_code=400, detail="Phone required.")
     
     formatted_phone = format_phone(phone)
     code = str(random.randint(100000, 999999))
     verification_codes[formatted_phone] = code
+    
+    # [DEBUG_LOG] This allows developers to see the code in the terminal
+    logger.info(f"VERIFICATION_CODE_GENERATED: phone={formatted_phone} | code={code}")
     
     if twilio_client:
         try:
@@ -342,17 +396,49 @@ async def send_verification(data: dict):
 @app.post("/verify-code")
 async def verify_code(data: dict):
     # [REGISTRATION_PIPELINE: STEP 2]
-    # Confirms the MFA code. On success, the tradie's business profile is officially 
-    # persisted into the Supabase database and purged from volatile memory.
+    # Confirms the MFA code. On success, the Supabase Auth record is created 
+    # (triggering the confirmation email) and the profile is persisted.
     phone, code = data.get("phone"), data.get("code")
     formatted_phone = format_phone(phone)
-    if verification_codes.get(formatted_phone) != code:
-        raise HTTPException(status_code=400, detail="Invalid code.")
+    
+    stored_code = verification_codes.get(formatted_phone)
+    logger.info(f"VERIFICATION_ATTEMPT: phone={formatted_phone} | provided={code} | expected={stored_code}")
+
+    if not stored_code or stored_code != code:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     
     del verification_codes[formatted_phone]
     if formatted_phone in pending_registrations:
         profile_data = pending_registrations.pop(formatted_phone)
-        await run_sync(supabase_admin.table("tradies").insert(profile_data).execute)
+        password = profile_data.pop("password")
+        
+        try:
+            # [RECLAMATION_LOGIC]
+            # If this phone number is tied to an unverified stale account, wipe it now 
+            # because the user has just proven they own the phone via SMS.
+            existing = await run_sync(supabase_admin.table("tradies").select("id").eq("phone_number", formatted_phone).execute)
+            if existing.data:
+                old_id = existing.data[0]["id"]
+                logger.warning(f"IDENTITY_RECLAMATION_EXECUTING: Wiping stale account {old_id} for phone {formatted_phone}")
+                # 1. Delete from Tradies (leads will cascade if you set up FK correctly, or just delete tradie)
+                await run_sync(supabase_admin.table("tradies").delete().eq("id", old_id).execute)
+                # 2. Delete from Supabase Auth
+                try: await run_sync(supabase_admin.auth.admin.delete_user, old_id)
+                except: pass # User might already be gone
+
+            # [PROVISIONING]
+            # 1. Create Supabase Auth User (Triggers Confirmation Email)
+            auth_res = await run_sync(supabase.auth.sign_up, {"email": profile_data["email"], "password": password})
+            if not auth_res.user:
+                raise HTTPException(status_code=400, detail="Auth creation failed.")
+            
+            # 2. Persist Profile
+            profile_data["id"] = auth_res.user.id
+            await run_sync(supabase_admin.table("tradies").insert(profile_data).execute)
+            return {"status": "success"}
+        except Exception as e:
+            logger.error(f"AUTH_PROVISIONING_FAILURE: {e}")
+            raise HTTPException(status_code=500, detail="Failed to finalize account.")
             
     return {"status": "success"}
 
@@ -560,6 +646,10 @@ async def serve_update_password():
 @app.get(os.getenv("PATH_PREVIEW", "/preview"), response_class=HTMLResponse)
 async def serve_preview():
     return HTML_PAGES_CACHE.get("preview", "Page missing.")
+
+@app.get("/verified", response_class=HTMLResponse)
+async def serve_verified():
+    return HTML_PAGES_CACHE.get("verified", "Page missing.")
 
 @app.post("/update-password")
 async def update_password(data: ResetPasswordSchema, user=Depends(get_current_user)):
