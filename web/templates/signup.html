@@ -428,11 +428,16 @@ This file handles the multi-step user registration and phone verification flow f
 
         /* [UTILITY: UI_NOTIFICATIONS] */
         function toast(m, type = 'error') {
-            const el = document.createElement('div');
-            el.className = `toast toast-${type}`;
-            el.innerHTML = `<span>${m}</span>`;
-            document.getElementById('toast-container').appendChild(el);
-            setTimeout(() => { el.remove(); }, 4000);
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const icon = type === 'success' 
+                ? '<svg width="18" height="18" fill="none" stroke="var(--green)" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
+                : '<svg width="18" height="18" fill="none" stroke="var(--red)" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+            
+            t.innerHTML = `${icon}<span>${m}</span>`;
+            c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; setTimeout(() => t.remove(), 400); }, 4000);
         }
 
         /* [UI_TRANSITION_LOGIC] */
@@ -494,14 +499,27 @@ This file handles the multi-step user registration and phone verification flow f
 
         /* [API_ORCHESTRATION: REGISTRATION_REQUEST] */
         async function register() {
-            const name = document.getElementById('biz-name').value;
-            const email = document.getElementById('biz-email').value;
-            const password = document.getElementById('biz-password').value;
-            
-            if (!iti.isValidNumber()) { toast('Please enter a valid phone number'); return; }
-            const phone = iti.getNumber(); // Gets full E.164 format automatically
+            const nameEl = document.getElementById('biz-name');
+            const emailEl = document.getElementById('biz-email');
+            const passEl = document.getElementById('biz-password');
+            const phoneEl = document.getElementById('biz-phone');
 
-            if (!name || !email || !password || !phone) { toast('All fields required'); return; }
+            [nameEl, emailEl, passEl, phoneEl].forEach(el => el.classList.remove('error'));
+
+            if (!iti.isValidNumber()) { 
+                toast('Please enter a valid phone number'); 
+                phoneEl.classList.add('error');
+                return; 
+            }
+            const phone = iti.getNumber();
+
+            if (!nameEl.value || !emailEl.value || !passEl.value) { 
+                toast('Please fill in all professional details'); 
+                if(!nameEl.value) nameEl.classList.add('error');
+                if(!emailEl.value) emailEl.classList.add('error');
+                if(!passEl.value) passEl.classList.add('error');
+                return; 
+            }
 
             const btn = document.getElementById('reg-btn');
             btn.disabled = true;
@@ -509,39 +527,55 @@ This file handles the multi-step user registration and phone verification flow f
                 const res = await fetch(`${API_BASE}/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ business_name: name, email, password, phone_number: phone })
+                    body: JSON.stringify({ business_name: nameEl.value.trim(), email: emailEl.value.trim(), password: passEl.value, phone_number: phone })
                 });
+                
+                const d = await res.json();
+                
                 if (res.ok) {
                     localStorage.setItem('temp_phone', phone);
-                    sessionStorage.setItem('reg_email', email);
-                    sessionStorage.setItem('reg_password', password);
-                    await fetch(`${API_BASE}/send-verification`, {
+                    sessionStorage.setItem('reg_email', emailEl.value.trim());
+                    sessionStorage.setItem('reg_password', passEl.value);
+                    
+                    const verifyRes = await fetch(`${API_BASE}/send-verification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phone })
                     });
+                    
+                    if (verifyRes.status === 429) {
+                        toast('Verification limit reached. Please wait 60 seconds.');
+                        btn.disabled = false;
+                        return;
+                    }
+
                     goToStep(2);
                     startTimer();
                 } else {
-                    const d = await res.json();
-                    toast(d.detail || 'Failed');
+                    toast(d.detail || 'Registration failed. Please try again.');
+                    if(d.detail && d.detail.includes('email')) emailEl.classList.add('error');
+                    if(d.detail && d.detail.includes('phone')) phoneEl.classList.add('error');
                 }
-            } catch { toast('Connection error'); }
+            } catch { toast('Connection issue. Please try again.'); }
             btn.disabled = false;
         }
 
         /* [API_ORCHESTRATION: MFA_VERIFICATION] */
         async function verifyCode() {
-            const code = document.getElementById('verify-code').value;
+            const codeEl = document.getElementById('verify-code');
             const phone = localStorage.getItem('temp_phone');
             const btn = document.getElementById('verify-btn');
+            
+            codeEl.classList.remove('error');
             btn.disabled = true;
+            
             try {
                 const res = await fetch(`${API_BASE}/verify-code`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, code })
+                    body: JSON.stringify({ phone, code: codeEl.value })
                 });
+                
                 if (res.ok) {
                     goToStep(3);
                     const email = sessionStorage.getItem('reg_email');
@@ -554,8 +588,12 @@ This file handles the multi-step user registration and phone verification flow f
                     const lData = await lRes.json();
                     localStorage.setItem('tradsiee_slug', lData.slug);
                     localStorage.setItem('tradsiee_token', lData.access_token);
-                } else { toast('Invalid code'); }
-            } catch { toast('Error'); }
+                } else { 
+                    const d = await res.json();
+                    toast(d.detail || 'Invalid verification code'); 
+                    codeEl.classList.add('error');
+                }
+            } catch { toast('Error during verification'); }
             btn.disabled = false;
         }
     </script>

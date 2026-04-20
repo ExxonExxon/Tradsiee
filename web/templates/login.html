@@ -172,7 +172,15 @@ orchestrating login, password recovery, and session establishment.
 
         /* [UI_COMPONENT: NOTIFICATION_SYSTEM] */
         #toast-container { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
-        .toast { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 20px; background: #1C1C1E; color: #fff; font-size: 13px; font-weight: 600; box-shadow: 0 16px 48px rgba(0,0,0,0.2); pointer-events: auto; max-width: 340px; white-space: normal; animation: toastIn 0.4s cubic-bezier(0.2,0,0,1) forwards; }
+        .toast { 
+            display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 20px; 
+            background: #1C1C1E; color: #fff; font-size: 13px; font-weight: 600; 
+            box-shadow: 0 16px 48px rgba(0,0,0,0.2); pointer-events: auto; 
+            max-width: 340px; white-space: normal; animation: toastIn 0.4s cubic-bezier(0.2,0,0,1) forwards; 
+            backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1);
+        }
+        .toast.error { border-left: 4px solid var(--red); }
+        .toast.success { border-left: 4px solid var(--green); }
         @keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(0.92); } to { opacity: 1; transform: translateY(0) scale(1); } }
     </style>
 </head>
@@ -265,11 +273,16 @@ orchestrating login, password recovery, and session establishment.
         const API_BASE = TRADSIEE_ENV.API_BASE;
 
         function toast(m, type = 'error') {
-            const el = document.createElement('div');
-            el.className = `toast toast-${type}`;
-            el.innerHTML = `<span>${m}</span>`;
-            document.getElementById('toast-container').appendChild(el);
-            setTimeout(() => { el.remove(); }, 4000);
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const icon = type === 'success' 
+                ? '<svg width="18" height="18" fill="none" stroke="var(--green)" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
+                : '<svg width="18" height="18" fill="none" stroke="var(--red)" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+            
+            t.innerHTML = `${icon}<span>${m}</span>`;
+            c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; setTimeout(() => t.remove(), 400); }, 4000);
         }
 
         function switchTo(view) {
@@ -291,10 +304,18 @@ orchestrating login, password recovery, and session establishment.
 
         /* [API_ORCHESTRATION: CREDENTIAL_AUTHENTICATION] */
         async function login() {
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
+            const emailEl = document.getElementById('email');
+            const passEl = document.getElementById('password');
             const btn = document.getElementById('login-btn');
-            if (!email || !password) { toast('Email and password required'); return; }
+            
+            [emailEl, passEl].forEach(el => el.classList.remove('error'));
+
+            if (!emailEl.value || !passEl.value) { 
+                toast('Please enter your credentials'); 
+                if(!emailEl.value) emailEl.classList.add('error');
+                if(!passEl.value) passEl.classList.add('error');
+                return; 
+            }
 
             document.getElementById('loader').style.display = 'flex';
             btn.disabled = true;
@@ -303,23 +324,23 @@ orchestrating login, password recovery, and session establishment.
                 const res = await fetch(`${API_BASE}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ email: emailEl.value.trim(), password: passEl.value })
                 });
+                
                 const data = await res.json();
                 
-                // [UNVERIFIED_STATE_HANDLING]
-                // Allow login even if email isn't confirmed; the Portal will show the banner.
                 if (res.ok || res.status === 403) {
                     localStorage.setItem('tradsiee_slug', data.slug);
                     localStorage.setItem('tradsiee_token', data.access_token);
                     setTimeout(() => { window.location.href = '[[PATH_PORTAL]]'; }, 500);
                 } else {
-                    toast(data.detail || 'Login failed');
+                    toast(data.detail || 'Access denied. Please check your credentials.');
                     document.getElementById('loader').style.display = 'none';
                     btn.disabled = false;
+                    passEl.classList.add('error');
                 }
             } catch (err) {
-                toast('Connection error');
+                toast('Network error. Please check your connection.');
                 document.getElementById('loader').style.display = 'none';
                 btn.disabled = false;
             }
@@ -327,19 +348,24 @@ orchestrating login, password recovery, and session establishment.
 
         /* [API_ORCHESTRATION: PASSWORD_RECOVERY] */
         async function handleReset() {
-            const email = document.getElementById('reset-email').value.trim();
-            if (!email) { toast('Email address required'); return; }
+            const emailEl = document.getElementById('reset-email');
+            if (!emailEl.value) { toast('Email address required'); emailEl.classList.add('error'); return; }
+            
             const btn = document.getElementById('reset-btn');
             btn.disabled = true;
             try {
                 const res = await fetch(`${API_BASE}/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
+                    body: JSON.stringify({ email: emailEl.value.trim() })
                 });
-                if (res.ok) switchTo('sent');
-                else toast('Could not send reset link');
-            } catch { toast('Connection error'); }
+                if (res.ok) {
+                    switchTo('sent');
+                } else {
+                    const data = await res.json();
+                    toast(data.detail || 'Could not send reset link');
+                }
+            } catch { toast('Network error'); }
             btn.disabled = false;
         }
     </script>
