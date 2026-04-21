@@ -83,33 +83,6 @@
             position: relative;
         }
 
-        /* [AMBIENT_VISUAL_EFFECTS] 
-           Gradients and texture overlays to provide a premium feel without impacting DOM performance.
-        */
-        .orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.7;
-            pointer-events: none;
-            z-index: 0;
-        }
-        .orb-1 {
-            width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(0,122,255,0.10) 0%, transparent 70%);
-            top: -150px; right: -100px;
-        }
-        .orb-2 {
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(52,199,89,0.07) 0%, transparent 70%);
-            bottom: -100px; left: -80px;
-        }
-        .orb-3 {
-            width: 320px; height: 320px;
-            background: radial-gradient(circle, rgba(255,149,0,0.06) 0%, transparent 70%);
-            top: 40%; right: -60px;
-        }
-
         body::before {
             content: '';
             position: fixed; inset: 0;
@@ -119,6 +92,12 @@
             background-size: 40px 40px;
             z-index: 0;
             pointer-events: none;
+        }
+
+        body.dark::before {
+            background-image:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
         }
 
         /* [LAYOUT_GRID_SYSTEM] 
@@ -165,7 +144,6 @@
         .sidebar {
             background: var(--card);
             border-right: 1px solid var(--border);
-            box-shadow: 2px 0 24px rgba(0,0,0,0.04);
             padding: 28px 16px 24px;
             display: flex;
             height: 100dvh;
@@ -184,14 +162,7 @@
             background: #000; border-radius: 13px;
             display: flex; align-items: center; justify-content: center;
             color: #fff; font-weight: 900; font-size: 20px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
             flex-shrink: 0; position: relative; overflow: hidden;
-        }
-        .sidebar-logo .mark::after {
-            content: '';
-            position: absolute; top: 0; left: 0; right: 0; height: 50%;
-            background: rgba(255,255,255,0.08);
-            border-radius: 13px 13px 0 0;
         }
         .sidebar-logo span { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
 
@@ -211,9 +182,8 @@
         .nav-item:hover { background: var(--bg); color: var(--text); }
         .nav-item.active {
             background: #000; color: #fff;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        body.dark .nav-item.active { background: var(--blue); box-shadow: 0 4px 12px rgba(0,122,255,0.3); }
+        body.dark .nav-item.active { background: var(--blue); }
         .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 2.2; }
 
         /* [UI_COMPONENT: CREDITS_WIDGET] 
@@ -265,25 +235,10 @@
         .topbar-left p { font-size: 13px; color: var(--muted); margin-top: 5px; font-weight: 500; }
         .topbar-right { display: flex; align-items: center; gap: 10px; }
 
-        /* [UI_COMPONENT: SYNC_INDICATOR] 
-           Provides visual confirmation of backend synchronization status.
-        */
-        .sync-indicator {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 10px; font-weight: 800; color: var(--green);
-            background: var(--green-bg);
-            padding: 8px 14px; border-radius: 99px;
-            text-transform: uppercase; letter-spacing: 0.08em;
-        }
-        .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
-        .sync-dot.syncing { background: var(--orange); animation: pulse 1s ease infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
-
         .icon-btn {
             width: 44px; height: 44px; border-radius: 14px;
             border: 1.5px solid var(--border);
             background: var(--card);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); color: var(--muted);
         }
@@ -392,14 +347,25 @@
         .settings-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
         .settings-card p { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.4; }
 
-        .biz-avatar-group { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
-        .biz-avatar {
-            width: 44px; height: 44px; border-radius: 12px;
-            background: #000; color: #fff;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; font-weight: 800;
+        .settings-row {
+            display: grid; grid-template-columns: 1fr 2fr; gap: 40px;
+            padding: 40px 0; border-bottom: 1px solid var(--border);
         }
-        body.dark .biz-avatar { background: var(--blue); }
+        @media (max-width: 1024px) {
+            .settings-row { grid-template-columns: 1fr; gap: 20px; padding: 24px 0; }
+        }
+        .settings-info h3 { font-size: 18px; font-weight: 900; color: var(--text); margin-bottom: 8px; letter-spacing: -0.4px; }
+        .settings-info p { font-size: 14px; color: var(--muted); font-weight: 500; line-height: 1.5; max-width: 320px; }
+        
+        .settings-action .settings-card { margin-bottom: 0; box-shadow: var(--card-shadow); border-radius: 24px; padding: 32px; }
+
+        .settings-label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; margin-top: 16px; }
+        .settings-input { 
+            width: 100%; padding: 12px 16px; border-radius: 12px; border: 1.5px solid var(--border);
+            background: var(--bg); color: var(--text); font-family: inherit; font-size: 14px; font-weight: 600;
+            transition: all 0.2s;
+        }
+        .settings-input:focus { outline: none; border-color: var(--blue); }
 
         .info-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .info-row:last-child { border-bottom: none; }
@@ -504,10 +470,6 @@
 </head>
 <body class="light">
 
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
-<div class="orb orb-3"></div>
-
 <div class="app-shell">
     <!-- [COMPONENT: VERIFICATION_BANNER] 
          Visible only if the account has pending email confirmation.
@@ -546,7 +508,6 @@
              Persistent navigation and global state indicators.
         -->
         <div class="sidebar-logo">
-            <div class="mark">B</div>
             <span>Tradsiee</span>
         </div>
 
@@ -597,13 +558,9 @@
             -->
             <div class="topbar-left">
                 <h1 id="view-title">Pipeline</h1>
-                <p id="view-sub">Your active leads, live.</p>
+                <p id="view-sub"></p>
             </div>
             <div class="topbar-right">
-                <div class="sync-indicator">
-                    <div class="sync-dot" id="sync-dot"></div>
-                    Live
-                </div>
                 <div class="icon-btn" id="refresh-btn" onclick="manualRefresh()" title="Refresh now">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 </div>
@@ -639,86 +596,125 @@
             <div class="archive-wrap" id="archive-container"></div>
         </div>
 
-        <div id="view-settings" class="view-section">
-            <!-- [VIEW: CONFIGURATION_SUITE] 
-                 Workspace and account identity settings.
-            -->
-            <div class="settings-grid">
-                <div class="settings-card full">
-                    <h3>Display Preferences</h3>
-                    <p>Customize your workspace appearance.</p>
-                    <div class="toggle-row">
-                        <span class="toggle-label">Dark Mode</span>
-                        <label class="switch">
-                            <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode(this.checked)">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
+        <div id="view-settings" class="view-section" style="padding-bottom: 120px;">
+            <div class="settings-row" style="padding-top: 0;">
+                <div class="settings-info">
+                    <h3>General</h3>
+                    <p>Manage your workspace appearance and interface settings.</p>
                 </div>
-
-                <div class="settings-card full">
-                    <div class="biz-avatar-group">
-                        <div class="biz-avatar">
-                            <span id="biz-initial">B</span>
-                        </div>
-                        <div>
-                            <h3>Business Identity</h3>
-                            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Verified Workspace</div>
-                        </div>
-                    </div>
-                    
-                    <div class="info-row">
-                        <div class="info-row-label">Legal Name</div>
-                        <div class="info-row-value" id="set-bizname">—</div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-row-label">Unique Identifier (Slug)</div>
-                        <div class="info-row-value mono" id="set-slug-display">—</div>
-                    </div>
-                </div>
-
-                <div class="settings-card full">
-                    <h3>Subscription & Plan</h3>
-                    <p>Monitor your lead quota and manage your business subscription tier.</p>
-                    
-                    <div class="info-row">
-                        <div class="info-row-label">Active Plan</div>
-                        <div class="info-row-value" id="settings-plan-name">Standard Plan</div>
-                    </div>
-                    <div class="info-row" id="settings-credits-row">
-                        <div class="info-row-label">Monthly Lead Balance</div>
-                        <div class="info-row-value"><span id="settings-credits-num">0</span> Leads Remaining</div>
-                    </div>
-
-                    <div id="upgrade-section" style="margin-top: 24px;">
-                        <div style="background: var(--blue-bg); padding: 24px; border-radius: 20px; border: 1px solid var(--blue); position: relative; overflow: hidden;">
-                            <div style="position: absolute; top: -15px; right: -15px; width: 70px; height: 70px; background: var(--blue); opacity: 0.1; border-radius: 50%;"></div>
-                            <h4 style="font-size: 16px; font-weight: 800; color: var(--blue); margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                <span id="upgrade-title">Scale Your Business</span>
-                            </h4>
-                            <p id="upgrade-desc" style="font-size: 13px; color: var(--text); margin-bottom: 20px; opacity: 0.9; font-weight: 500; line-height: 1.5;">
-                                Unlock higher lead volumes and priority SMS infrastructure to accelerate your growth.
-                            </p>
-                            <button id="upgrade-btn" class="btn-primary-sm" onclick="openUpgradeModal()">Upgrade Your Plan</button>
+                <div class="settings-action">
+                    <div class="settings-card">
+                        <div class="toggle-row">
+                            <span class="toggle-label">Dark Mode</span>
+                            <label class="switch">
+                                <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode(this.checked)">
+                                <span class="slider"></span>
+                            </label>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="settings-card full">
-                    <h3>Installation Code</h3>
-                    <p>Paste this loader script into your website to enable Tradsiee.</p>
-                    <div class="code-block" id="embed-code">Loading script...</div>
-                    <button class="btn-primary-sm" style="margin-top:16px;" onclick="copyEmbed()">Copy Code</button>
+            <div class="settings-row">
+                <div class="settings-info">
+                    <h3>Business Profile</h3>
+                    <p>Update your public-facing business identity used in the lead widget.</p>
                 </div>
+                <div class="settings-action">
+                    <div class="settings-card">
+                        <div class="info-row">
+                            <div class="info-row-label">Business Name</div>
+                            <div class="info-row-value" id="summary-bizname">—</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-row-label">Public Slug</div>
+                            <div class="info-row-value mono" id="summary-slug">—</div>
+                        </div>
+                        <button class="btn-primary-sm" style="margin-top: 24px; width: 100%; height: 48px;" onclick="openModal('profile-modal')">Edit Profile</button>
+                    </div>
+                </div>
+            </div>
 
-                <div class="settings-card full">
-                    <h3 style="color:var(--red);">Danger Zone</h3>
-                    <p>Irreversible actions. Use with extreme caution.</p>
-                    <button class="danger-btn" onclick="openDeleteModal()">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        Delete Account
-                    </button>
+            <div class="settings-row">
+                <div class="settings-info">
+                    <h3>Security</h3>
+                    <p>Maintain your account access and update your authentication credentials.</p>
+                </div>
+                <div class="settings-action">
+                    <div class="settings-card">
+                        <div class="info-row">
+                            <div class="info-row-label">Email Address</div>
+                            <div class="info-row-value" id="summary-email">—</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-row-label">Password</div>
+                            <div class="info-row-value">••••••••••••</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px;">
+                            <button class="btn-primary-sm" style="height: 48px; background: var(--bg); color: var(--text);" onclick="openModal('email-modal')">Change Email</button>
+                            <button class="btn-primary-sm" style="height: 48px;" onclick="openModal('password-modal')">Update Password</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-info">
+                    <h3>Subscription</h3>
+                    <p>Monitor your lead quota and manage your business plan tier.</p>
+                </div>
+                <div class="settings-action">
+                    <div class="settings-card">
+                        <div class="info-row">
+                            <div class="info-row-label">Current Tier</div>
+                            <div class="info-row-value" id="settings-plan-name" style="color: var(--blue); font-weight: 800;">Standard Plan</div>
+                        </div>
+                        <div class="info-row" id="settings-credits-row">
+                            <div class="info-row-label">Lead Balance</div>
+                            <div class="info-row-value"><span id="settings-credits-num">0</span> Leads</div>
+                        </div>
+
+                        <div id="upgrade-section" style="margin-top: 24px;">
+                            <div style="background: var(--blue-bg); padding: 24px; border-radius: 20px; border: 1.5px solid var(--blue); position: relative;">
+                                <h4 style="font-size: 15px; font-weight: 800; color: var(--blue); margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                    <span id="upgrade-title">Scale Your Business</span>
+                                </h4>
+                                <p id="upgrade-desc" style="font-size: 13px; color: var(--text); margin-bottom: 20px; opacity: 0.8; font-weight: 500;">
+                                    Unlock more leads and priority SMS infrastructure.
+                                </p>
+                                <button id="upgrade-btn" class="btn-primary-sm" style="width: 100%;" onclick="openUpgradeModal()">View Plans</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <div class="settings-info">
+                    <h3>Installation</h3>
+                    <p>Embed this code into your website's header to enable the Tradsiee widget.</p>
+                </div>
+                <div class="settings-action">
+                    <div class="settings-card">
+                        <div class="code-block" id="embed-code" style="margin-bottom: 16px;">Loading script...</div>
+                        <button class="btn-primary-sm" style="width: 100%;" onclick="copyEmbed()">Copy Installation Code</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-row" style="border-bottom: none;">
+                <div class="settings-info">
+                    <h3>Danger Zone</h3>
+                    <p>Permanently delete your account and all associated lead data. This cannot be undone.</p>
+                </div>
+                <div class="settings-action">
+                    <div class="settings-card" style="border-color: var(--red-bg);">
+                        <button class="danger-btn" style="width: 100%; justify-content: center; height: 48px;" onclick="openDeleteModal()">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            Delete Workspace
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -727,15 +723,57 @@
 
 <div id="toast-container"></div>
 
-<div class="modal-backdrop" id="sms-modal" onclick="closeModal()">
+<div class="modal-backdrop" id="profile-modal" onclick="closeModal('profile-modal')">
     <div class="modal" onclick="event.stopPropagation()">
-        <!-- [COMPONENT: CONTACT_MODAL] 
-             Facilitates customer engagement via templated SMS protocols.
-        -->
-        <div class="modal-title">Message <span id="modal-name">—</span></div>
-        <div class="modal-sub" id="modal-phone">—</div>
-        <div id="modal-templates"></div>
-        <button class="modal-close" onclick="closeModal()">Close Window</button>
+        <div class="modal-title">Edit Profile</div>
+        <p class="modal-sub">Update your business identity and identifiers.</p>
+        
+        <label class="settings-label">Business Name</label>
+        <input class="modal-input" id="modal-bizname" type="text" placeholder="Your Business Name">
+        
+        <label class="settings-label">Public Identifier (Slug)</label>
+        <input class="modal-input" id="modal-slug" type="text" placeholder="your-business-slug">
+        <p style="font-size: 11px; margin-bottom: 24px; color: var(--muted); line-height: 1.4;">
+            Changing your slug will require updating your website's installation code.
+        </p>
+
+        <button class="btn-primary-sm" style="width:100%;height:54px;" onclick="saveProfile()" id="save-profile-btn">Save Changes</button>
+        <button class="modal-close" onclick="closeModal('profile-modal')">Cancel</button>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="email-modal" onclick="closeModal('email-modal')">
+    <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-title">Change Email</div>
+        <p class="modal-sub">Enter your new email and confirm with your password.</p>
+        
+        <label class="settings-label">New Email Address</label>
+        <input class="modal-input" id="modal-email" type="email" placeholder="new@example.com">
+        
+        <label class="settings-label">Current Password</label>
+        <input class="modal-input" id="modal-email-password" type="password" placeholder="••••••••">
+
+        <button class="btn-primary-sm" style="width:100%;height:54px;" onclick="updateAccount('email')" id="save-email-btn">Verify & Update Email</button>
+        <button class="modal-close" onclick="closeModal('email-modal')">Cancel</button>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="password-modal" onclick="closeModal('password-modal')">
+    <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-title">Update Password</div>
+        <p class="modal-sub">Create a new secure password for your workspace.</p>
+        
+        <label class="settings-label">Current Password</label>
+        <input class="modal-input" id="modal-old-password" type="password" placeholder="••••••••">
+        
+        <label class="settings-label" style="margin-top: 20px;">New Password</label>
+        <input class="modal-input" id="modal-new-password" type="password" placeholder="••••••••">
+
+        <label class="settings-label" style="margin-top: 20px;">Confirm New Password</label>
+        <input class="modal-input" id="modal-confirm-password" type="password" placeholder="••••••••">
+
+        <button class="btn-primary-sm" style="width:100%;height:54px;" onclick="updateAccount('password')" id="save-password-btn">Update Password</button>
+        <button class="modal-close" onclick="closeModal('password-modal')">Cancel</button>
     </div>
 </div>
 
@@ -826,6 +864,7 @@
         leads: [],
         credits: 0,
         bizName: '',
+        email: '',
         currentView: 'pipeline',
         theme: localStorage.getItem('tradsiee_theme') || 'light',
         isVerified: true // Assume verified until 403 occurs
@@ -926,6 +965,7 @@
             state.leads = data.leads || [];
             state.credits = data.credits || 0;
             state.bizName = data.business_name || '';
+            state.email = data.email || '';
             renderData();
             updateUI();
         } catch(e) { console.error("Sync Error:", e); }
@@ -986,9 +1026,14 @@
             if (uBtn) uBtn.style.display = 'none';
         }
 
-        if (document.getElementById('set-bizname')) document.getElementById('set-bizname').textContent = safeText(state.bizName);
-        if (document.getElementById('biz-initial') && state.bizName) document.getElementById('biz-initial').textContent = state.bizName.charAt(0).toUpperCase();
-        if (document.getElementById('set-slug-display')) document.getElementById('set-slug-display').textContent = safeText(state.slug).toUpperCase();
+        if (document.getElementById('summary-bizname')) document.getElementById('summary-bizname').textContent = state.bizName || '—';
+        if (document.getElementById('summary-slug')) document.getElementById('summary-slug').textContent = state.slug || '—';
+        if (document.getElementById('summary-email')) document.getElementById('summary-email').textContent = state.email || '—';
+
+        if (document.getElementById('modal-bizname')) document.getElementById('modal-bizname').value = state.bizName;
+        if (document.getElementById('modal-slug')) document.getElementById('modal-slug').value = state.slug;
+        if (document.getElementById('modal-email')) document.getElementById('modal-email').value = state.email;
+        
         if (document.getElementById('delete-confirm-slug')) document.getElementById('delete-confirm-slug').textContent = safeText(state.slug);
         const code = `<div id="tradsiee-widget-root"></div>\n<script src="${API}/loader.js?slug=${encodeURIComponent(state.slug)}" async><\/script>`;
         if (document.getElementById('embed-code')) document.getElementById('embed-code').textContent = code;
@@ -1077,6 +1122,89 @@
         } catch(e) { showToast('Update failed', 'error'); }
     }
 
+    async function saveProfile() {
+        const btn = document.getElementById('save-profile-btn');
+        const originalText = btn.textContent;
+        const name = document.getElementById('modal-bizname').value.trim();
+        const slug = document.getElementById('modal-slug').value.trim().toLowerCase();
+        
+        if (!name || !slug) return showToast('Name and Slug are required', 'error');
+
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            const res = await fetch(`${API}/update-profile`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ business_name: name, slug: slug })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Profile updated', 'success');
+                if (slug !== state.slug) {
+                    localStorage.setItem('tradsiee_slug', slug);
+                    state.slug = slug;
+                }
+                state.bizName = name;
+                updateUI();
+                closeModal('profile-modal');
+            } else {
+                showToast(data.detail || 'Update failed', 'error');
+            }
+        } catch(e) { showToast('Update failed', 'error'); }
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+
+    async function updateAccount(type) {
+        let btn, updates = {};
+        
+        if (type === 'email') {
+            btn = document.getElementById('save-email-btn');
+            const email = document.getElementById('modal-email').value.trim();
+            const password = document.getElementById('modal-email-password').value.trim();
+            if (!email || !password) return showToast('Email and password required', 'error');
+            updates = { email, current_password: password };
+        } else {
+            btn = document.getElementById('save-password-btn');
+            const oldPass = document.getElementById('modal-old-password').value.trim();
+            const newPass = document.getElementById('modal-new-password').value.trim();
+            const confirmPass = document.getElementById('modal-confirm-password').value.trim();
+            if (!oldPass || !newPass || !confirmPass) return showToast('All fields required', 'error');
+            if (newPass !== confirmPass) return showToast('Passwords do not match', 'error');
+            updates = { old_password: oldPass, password: newPass };
+        }
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Updating...';
+
+        try {
+            const res = await fetch(`${API}/update-account`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Security updated', 'success');
+                if (updates.email) state.email = updates.email;
+                updateUI();
+                closeModal(type === 'email' ? 'email-modal' : 'password-modal');
+                // Clear sensitive fields
+                if (document.getElementById('modal-email-password')) document.getElementById('modal-email-password').value = '';
+                if (document.getElementById('modal-old-password')) document.getElementById('modal-old-password').value = '';
+                if (document.getElementById('modal-new-password')) document.getElementById('modal-new-password').value = '';
+                if (document.getElementById('modal-confirm-password')) document.getElementById('modal-confirm-password').value = '';
+            } else {
+                showToast(data.detail || 'Update failed', 'error');
+            }
+        } catch(e) { showToast('Update failed', 'error'); }
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+
     function openSMS(id) {
         const l = state.leads.find(x => String(x.id) === String(id));
         if (!l) return;
@@ -1088,18 +1216,20 @@
             const b = document.createElement('button');
             b.className = 'template-btn';
             b.textContent = t;
-            b.onclick = () => { window.location.href = `sms:${l.customer_phone}?body=${encodeURIComponent(t)}`; closeModal(); };
+            b.onclick = () => { window.location.href = `sms:${l.customer_phone}?body=${encodeURIComponent(t)}`; closeModal('sms-modal'); };
             list.appendChild(b);
         });
-        document.getElementById('sms-modal').classList.add('open');
+        openModal('sms-modal');
     }
-    function closeModal() { document.getElementById('sms-modal').classList.remove('open'); }
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-    function openDeleteModal() { document.getElementById('delete-modal').classList.add('open'); }
-    function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('open'); }
+    function openDeleteModal() { openModal('delete-modal'); }
+    function closeDeleteModal() { closeModal('delete-modal'); }
 
-    function openUpgradeModal() { document.getElementById('upgrade-modal').classList.add('open'); }
-    function closeUpgradeModal() { document.getElementById('upgrade-modal').classList.remove('open'); }
+    function openUpgradeModal() { openModal('upgrade-modal'); }
+    function closeUpgradeModal() { closeModal('upgrade-modal'); }
+
 
     async function sendDeleteCode() {
         try {

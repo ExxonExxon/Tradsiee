@@ -248,6 +248,14 @@ class ForgotPasswordSchema(BaseModel):
 class ResetPasswordSchema(BaseModel):
     new_password: constr(min_length=8)
 
+class UpdateProfileSchema(BaseModel):
+    business_name: Optional[str] = None
+    slug: Optional[str] = None
+
+class UpdateAccountSchema(BaseModel):
+    email: Optional[EmailStr] = None
+    password: Optional[constr(min_length=8)] = None
+
 class LeadData(BaseModel):
     # [LEAD_PAYLOAD_STRUCTURE]
     # Defines the data expected from the lead-generation widget.
@@ -521,7 +529,12 @@ async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: Authent
         .select("*")
         .order("created_at", desc=True).range(offset, offset + limit - 1).execute
     )
-    return {"business_name": biz_res.data["business_name"], "credits": biz_res.data["credits"], "leads": leads_res.data}
+    return {
+        "business_name": biz_res.data["business_name"], 
+        "credits": biz_res.data["credits"], 
+        "email": tradie.user.email,
+        "leads": leads_res.data
+    }
 
 @app.post("/submit-lead-data/{slug}")
 async def submit_lead_data(slug: str, data: LeadData, background_tasks: BackgroundTasks):
@@ -735,6 +748,53 @@ async def update_password(data: ResetPasswordSchema, auth: HTTPAuthorizationCred
     except Exception as e:
         logger.error(f"PASSWORD_ROTATION_FAILURE: {e}")
         raise HTTPException(status_code=400, detail="Failed to update password.")
+
+@app.patch("/update-profile")
+async def update_profile(data: UpdateProfileSchema, tradie: AuthenticatedTradie = Depends(get_current_user)):
+    # [PROFILE_STATE_MUTATION]
+    # Updates the business's public identity and branding.
+    updates = {}
+    if data.business_name: updates["business_name"] = data.business_name
+    if data.slug:
+        # Validate slug format
+        if not re.match(r'^[a-z0-9-]+$', data.slug.lower()):
+            raise HTTPException(status_code=400, detail="Slug can only contain letters, numbers, and hyphens.")
+        
+        # Check uniqueness
+        check = await run_sync(supabase_admin.table("tradies").select("id").eq("slug", data.slug.lower()).neq("id", tradie.id).execute)
+        if check.data:
+            raise HTTPException(status_code=400, detail="This slug is already taken.")
+        updates["slug"] = data.slug.lower()
+
+    if not updates: return {"status": "no-op"}
+
+    res = await run_sync(supabase_admin.table("tradies").update(updates).eq("id", tradie.id).execute)
+    if not res.data: raise HTTPException(status_code=400, detail="Update failed.")
+    return {"status": "success", "data": res.data[0]}
+
+@app.patch("/update-account")
+async def update_account(data: UpdateAccountSchema, tradie: AuthenticatedTradie = Depends(get_current_user)):
+    # [ACCOUNT_SECURITY_MUTATION]
+    # Updates critical user identity and access credentials.
+    auth_updates = {}
+    if data.email: auth_updates["email"] = data.email
+    if data.password: auth_updates["password"] = data.password
+
+    if not auth_updates: return {"status": "no-op"}
+
+    try:
+        # 1. Update Supabase Auth via Admin API (Atomic rotation)
+        # Note: If email changes, Supabase might send a verification link depending on config.
+        await run_sync(supabase_admin.auth.admin.update_user_by_id, tradie.id, auth_updates)
+        
+        # 2. Sync email to tradies table if changed to maintain relational integrity.
+        if data.email:
+            await run_sync(supabase_admin.table("tradies").update({"email": data.email}).eq("id", tradie.id).execute)
+            
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"ACCOUNT_UPDATE_FAILURE: {e}")
+        raise HTTPException(status_code=400, detail="Failed to update account credentials.")
 
 @app.post("/send-delete-code")
 async def send_delete_code(tradie: AuthenticatedTradie = Depends(get_current_user)):
