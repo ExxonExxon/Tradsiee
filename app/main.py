@@ -30,6 +30,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 import cloudinary
+import httpx
 from dotenv import load_dotenv
 from fastapi import (
     BackgroundTasks,
@@ -81,9 +82,9 @@ supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 def get_supabase_user_client(token: str) -> Client:
     # [RLS_ORCHESTRATION]
     # Creates a Supabase client scoped to the specific user's JWT.
-    # This ensures that Row Level Security (RLS) is enforced at the database level.
+    # We use set_session to ensure both Auth and Postgrest modules are aware of the token.
     client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    client.postgrest.auth(token)
+    client.auth.set_session(token, "")
     return client
 
 # [CLIENT_INITIALIZATION: CLOUDINARY]
@@ -495,7 +496,7 @@ async def verify_code(data: dict, request: Request):
 
         # [PROVISIONING]
         # Use dynamic base_url to ensure redirects work in both local and prod
-        auth_res = await run_sync(supabase.auth.sign_up, {
+        auth_res = await run_sync(supabase_admin.auth.sign_up, {
             "email": profile_data["email"], 
             "password": password,
             "options": { "redirect_to": f"{base_url}/verified" }
@@ -797,49 +798,89 @@ async def update_account(data: UpdateAccountSchema, tradie: AuthenticatedTradie 
         raise HTTPException(status_code=400, detail="Failed to update account credentials.")
 
 @app.post("/send-delete-code")
-async def send_delete_code(tradie: AuthenticatedTradie = Depends(get_current_user)):
+async def send_delete_code(tradie: AuthenticatedTradie = Depends(get_current_user), request: Request = None):
     # [DESTRUCTIVE_ACTION_MFA]
-    # Issues a confirmation code via SMS before allowing account deletion.
+    # Issues an 8-digit confirmation code via SMS before allowing account deletion.
     # Acts as a critical high-friction security gate.
-    res = await run_sync(supabase_admin.table("tradies").select("phone_number").eq("id", tradie.id).single().execute)
-    if not res.data: raise HTTPException(status_code=404, detail="Profile not found.")
-    
-    phone = res.data["phone_number"]
-    code = str(random.randint(100000, 999999))
-    verification_codes[f"DEL_{tradie.id}"] = code
-    
-    if twilio_client:
-        try:
-            await run_sync(twilio_client.messages.create, 
-                messaging_service_sid=TEFLON_SERVICE_SID,
-                body=f"Your Tradsiee account deletion code: {code}. If you didn't request this, ignore it.",
-                to=phone
-            )
-        except Exception as e:
-            logger.error(f"DELETION_SMS_FAILURE: {e}")
-            raise HTTPException(status_code=500, detail="SMS failed.")
-    return {"status": "success"}
+    try:
+        # Prevent SMS spam
+        client_ip = request.client.host if request else "unknown"
+        if is_rate_limited(client_ip, "sms"):
+            raise HTTPException(status_code=429, detail="Please wait 60 seconds before requesting another code.")
+
+        res = await run_sync(supabase_admin.table("tradies").select("phone_number").eq("id", tradie.id).single().execute)
+        if not res.data: raise HTTPException(status_code=404, detail="Profile not found.")
+        
+        phone = res.data["phone_number"]
+        # Generate an 8-digit code as requested
+        code = str(random.randint(10000000, 99999999))
+        verification_codes[f"DEL_{tradie.id}"] = code
+        
+        if twilio_client:
+            try:
+                await run_sync(twilio_client.messages.create, 
+                    messaging_service_sid=TEFLON_SERVICE_SID,
+                    body=f"Your Tradsiee account deletion code: {code}. If you didn't request this, ignore it.",
+                    to=phone
+                )
+                logger.info(f"DELETION_SMS_SENT: tradie_id={tradie.id}")
+            except Exception as e:
+                logger.error(f"DELETION_SMS_FAILURE: {e}")
+                raise HTTPException(status_code=500, detail="Failed to send SMS.")
+        else:
+            logger.warning("TWILIO_NOT_CONFIGURED: Falling back to log-only code for dev.")
+            logger.info(f"DEV_DELETION_CODE: {code}")
+            
+        return {"status": "success", "message": "Code sent to your phone."}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"SEND_DELETE_CODE_FAILURE: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error.")
 
 @app.delete("/delete-account/{slug}")
 async def delete_account(slug: str, code: str, tradie: AuthenticatedTradie = Depends(get_current_user)):
     # [ACCOUNT_TERMINATION_LOGIC]
+    # Verifies the 8-digit SMS code before wiping user data.
     if verification_codes.get(f"DEL_{tradie.id}") != code:
-        raise HTTPException(status_code=400, detail="Invalid code.")
-    
+        logger.warning(f"INVALID_DELETION_CODE: tradie_id={tradie.id}")
+        raise HTTPException(status_code=400, detail="Invalid verification code.")
+
     try:
-        # 1. Delete Business Profile (RLS ensures we can only delete our own)
-        # Note: Slug check is implicit because RLS only allows deleting id = auth.uid()
-        await run_sync(tradie.supabase.table("tradies").delete().eq("id", tradie.id).execute)
-        
-        # 2. Delete Auth Record (Requires Admin)
-        await run_sync(supabase_admin.auth.admin.delete_user, tradie.id)
-        
+        # 1. Delete all leads belonging to this tradie
+        # This prevents Foreign Key constraint errors that block the tradie deletion.
+        await run_sync(supabase_admin.table("leads").delete().eq("tradie_id", tradie.id).execute)
+        logger.info(f"CLEANUP_SUCCESS: leads deleted for tradie_id={tradie.id}")
+
+        # 2. Delete the business profile data (tradies table)
+        await run_sync(supabase_admin.table("tradies").delete().eq("id", tradie.id).execute)
+        logger.info(f"CLEANUP_SUCCESS: tradie profile deleted for tradie_id={tradie.id}")
+
+        # 3. Delete Auth Record (Direct API call to ensure Service Role is respected)
+        async with httpx.AsyncClient() as client:
+            auth_delete_res = await client.delete(
+                f"{SUPABASE_URL}/auth/v1/admin/users/{tradie.id}",
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if auth_delete_res.status_code not in [200, 204, 404]:
+                logger.error(f"AUTH_ADMIN_DELETE_FAILED: {auth_delete_res.status_code} - {auth_delete_res.text}")
+                # We don't raise here because the DB is already wiped, we just log the orphan
+            else:
+                logger.info(f"CLEANUP_SUCCESS: auth record deleted for tradie_id={tradie.id}")
+
+        # 4. Clean up memory
         if f"DEL_{tradie.id}" in verification_codes:
             del verification_codes[f"DEL_{tradie.id}"]
+
         return {"status": "success"}
     except Exception as e:
         logger.error(f"DELETION_FAILURE: {e}")
-        raise HTTPException(status_code=500, detail="Deletion failed.")
+        raise HTTPException(status_code=500, detail=f"Account deletion failed: {str(e)}")
 
 @app.get("/ops-tomas-99", response_class=HTMLResponse)
 async def admin_page():
