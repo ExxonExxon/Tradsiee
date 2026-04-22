@@ -60,12 +60,75 @@
     <div class="orb orb-2"></div>
 
     <div class="card">
-        <div class="success-icon">
+        <div id="status-icon" class="success-icon">
             <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         </div>
-        <h1>Account Verified</h1>
-        <p>Your identity has been confirmed. You can now access your workspace and start receiving leads.</p>
-        <button class="btn-primary" onclick="window.location.href = '[[PATH_LOGIN]]'">Go to Login</button>
+        <h1 id="status-title">Account Verified</h1>
+        <p id="status-desc">Your identity has been confirmed. You can now access your workspace and start receiving leads.</p>
+        
+        <div id="error-actions" style="display: none; flex-direction: column; gap: 12px;">
+             <button class="btn-primary" onclick="resendLink()" id="resend-btn">Resend Confirmation Link</button>
+             <button style="font-size: 13px; font-weight: 700; color: var(--muted);" onclick="window.location.href = '[[PATH_SIGNUP]]'">Back to Signup</button>
+        </div>
+        
+        <button id="success-btn" class="btn-primary" onclick="window.location.href = '[[PATH_LOGIN]]'">Go to Login</button>
     </div>
+
+    <script>
+        // Check URL for Supabase Auth errors
+        window.onload = () => {
+            const hash = window.location.hash;
+            const params = new URLSearchParams(hash.replace('#', '?'));
+            const error = params.get('error') || params.get('error_description');
+
+            if (error) {
+                // Change UI to Error State
+                document.getElementById('status-icon').style.background = 'rgba(255,59,48,0.08)';
+                document.getElementById('status-icon').style.color = '#FF3B30';
+                document.getElementById('status-icon').innerHTML = '<svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+                
+                document.getElementById('status-title').textContent = 'Link Expired';
+                document.getElementById('status-title').style.color = '#FF3B30';
+                
+                document.getElementById('status-desc').textContent = 'This confirmation link is no longer valid. It may have expired or already been used.';
+                
+                document.getElementById('success-btn').style.display = 'none';
+                document.getElementById('error-actions').style.display = 'flex';
+            }
+        };
+
+        async function resendLink() {
+            const btn = document.getElementById('resend-btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            
+            // We'll try to get the email from local storage if they just signed up
+            const email = localStorage.getItem('reg_email') || sessionStorage.getItem('reg_email');
+            
+            if (!email) {
+                alert('Please go back to signup and enter your email again.');
+                window.location.href = '[[PATH_SIGNUP]]';
+                return;
+            }
+
+            try {
+                const res = await fetch('/resend-confirmation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                if (res.ok) {
+                    btn.textContent = 'Link Sent! Check your Email';
+                    btn.style.background = '#34C759';
+                } else {
+                    btn.textContent = 'Failed to resend. Try again.';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = 'Error. Try again.';
+            }
+        }
+    </script>
 </body>
 </html>

@@ -9,35 +9,47 @@ Tradsiee is a video-first lead generation platform designed to bridge the gap be
 - **API Framework:** FastAPI (Python)
 - **Persistence & Auth:** Supabase (PostgreSQL + GoTrue)
 - **Media Management:** Cloudinary (Unsigned client-side uploads)
-- **Communications:** Twilio SMS API + Resend SMTP (Transactional Email)
+- **Communications:** Twilio SMS API
 - **UI/UX:** Tailwind CSS (CDN), Vanilla JavaScript, Chart.js
 
+## Backend Architecture (Modular Engine)
+The backend is architected for scalability and maintainability, split into specialized modules:
+
+1.  **Entry Point (`app/main.py`)**: Lightweight orchestration. Initializes the FastAPI app, manages the template cache lifespan, and plugs in the API routers.
+2.  **Core Brain (`app/core/`)**:
+    *   `config.py`: Centralized configuration, environment variable resolution, and shared service clients (Supabase, Twilio, Cloudinary).
+    *   `dependencies.py`: Reusable logic including `get_current_user` (Auth Guard), `run_sync` (performance), and rate-limiting.
+3.  **API Routers (`app/api/`)**:
+    *   `auth.py`: Identity management, MFA (SMS), and profile security updates.
+    *   `leads.py`: Lead ingestion pipeline and pipeline retrieval.
+    *   `admin.py`: High-friction "Danger Zone" logic, account deletion, and credit management.
+    *   `pages.py`: Asset serving and dynamic JavaScript (widget loader) generation.
+
+## UI/UX Standards
+- **Settings Dashboard**: Uses a "Split-Section" layout (1/3 Info | 2/3 Action) to separate context from controls.
+- **Interactive Modals**: Sensitive edits (Email, Password, Profile) are performed within focused modals to maintain a clean dashboard state.
+- **Security Protocols**:
+    *   Email/Password updates require verification of the current password.
+    *   Account Deletion (Danger Zone) requires an irreversible checkbox, a slug-based confirmation phrase, and an 8-digit SMS OTP.
+
 ## System Workflow
-1. **The Widget:** A client-side script injected into trade websites.
-2. **Lead Submission:** Customers provide a phone number and a video file.
-3. **Data Pipeline:**
-   - Video → Cloudinary (Direct Upload)
-   - Lead Metadata → Supabase `leads` table
-   - SMS Alert → Tradie (Twilio)
-   - Identity Verification → Resend (via Supabase SMTP)
-4. **The Portal:** A protected interface (`web/templates/portal.html`) where tradies manage leads and view analytics.
-5. **Asset Serving:** `app/main.py` serves assets from the `web/` directory.
+1. **The Widget**: A client-side script injected into trade websites via `loader.js`.
+2. **Lead Submission**: Customers provide metadata and a video file (uploaded directly to Cloudinary).
+3. **Data Pipeline**:
+   - Metadata is persisted to Supabase `leads` table.
+   - Background tasks dispatch SMS alerts to the tradie and confirmation to the customer.
+4. **The Portal**: A protected SPA-style interface (`web/templates/portal.html`) for lead management.
 
 ## Setup & Execution
-- **Environment:** Requires `.env` in the root with `SUPABASE_URL`, `SUPABASE_KEY`, `CLOUDINARY_URL`, etc.
-- **Backend Start:** `uvicorn app.main:app --reload` (run from the root directory).
-- **Frontend Start:** Static file hosting on port 5500 (pointing to the `web/` directory).
-
-## Code Conventions
-- **Modularization:** Logic is split into `app/services`, `app/api`, etc.
-- **Validation:** Pydantic models in `app/schemas`.
-- **Security:** `HTTPBearer` for JWT verification against Supabase.
+- **Environment**: Requires `.env` in the root with `SUPABASE_URL`, `SUPABASE_KEY` (Service Role), `CLOUDINARY_URL`, and Twilio credentials.
+- **Backend Start**: `uvicorn app.main:app --reload` (run from root).
+- **Frontend Start**: Static file hosting on port 8000 (standard FastAPI port).
 
 ## Roadmap
-- [ ] Comprehensive test suite for FastAPI routes.
+- [ ] Comprehensive test suite for modular API routes.
 - [ ] Transition to a modern framework (e.g., React/Vue) for the dashboard.
-- [ ] Enhanced video compression before upload.
-- [ ] Automated error tracking integration.
+- [ ] Enhanced client-side video compression before upload.
+- [ ] Automated error tracking integration (e.g., Sentry).
 
 ---
 *Note: This file is for developer reference. See README.md for the general project overview.*

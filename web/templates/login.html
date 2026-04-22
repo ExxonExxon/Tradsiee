@@ -253,6 +253,28 @@ orchestrating login, password recovery, and session establishment.
                     </p>
                 </div>
             </div>
+
+            <!-- [VIEW: RECOVERY_SHIELD] -->
+            <div id="reactivate-view" class="view">
+                <div style="text-align:center;">
+                    <div style="width:80px; height:80px; background:rgba(255,159,10,0.1); border-radius:24px; display:flex; align-items:center; justify-content:center; margin:0 auto 24px; color:#FF9F0A;">
+                        <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <h2 style="font-size:26px; font-weight:900; letter-spacing:-0.6px; margin-bottom:12px;">Account scheduled for removal</h2>
+                    <p id="reactivate-desc" style="font-size:14px; color:var(--muted); line-height:1.6; margin-bottom:32px;">
+                        This account is currently in a 90-day grace period. All data is preserved, but will be permanently deleted on <span id="removal-date" style="color:var(--text); font-weight:700;">—</span>.
+                    </p>
+                    
+                    <button class="btn-primary" onclick="executeReactivation()" id="confirm-reactivate-btn">
+                        <span>Reactivate Account</span>
+                        <div class="spinner" id="reactivate-spinner"></div>
+                    </button>
+                    
+                    <button style="margin-top:16px; width:100%; height:54px; background:none; border:2px solid var(--border); border-radius:18px; color:var(--text); font-weight:800; text-transform:uppercase; letter-spacing:0.05em; font-size:12px; cursor:pointer;" onclick="switchTo('login')">
+                        Cancel and Log Out
+                    </button>
+                </div>
+            </div>
         </div>
 
         <p style="text-align:center;margin-top:28px;font-size:13px;color:var(--muted);">New to Tradsiee? <a href="[[PATH_SIGNUP]]" style="color:var(--blue);font-weight:700;text-decoration:none;">Create an account</a></p>
@@ -322,9 +344,20 @@ orchestrating login, password recovery, and session establishment.
                 
                 const data = await res.json();
                 
-                if (res.ok || res.status === 403) {
+                if (res.status === 403 && data.detail === "ACCOUNT_SCHEDULED_FOR_DELETION") {
+                    document.getElementById('loader').style.display = 'none';
+                    btn.disabled = false;
+                    toast('This account is scheduled for deletion and is no longer active.');
+                    return;
+                }
+
+                if (res.ok) {
                     localStorage.setItem('tradsiee_slug', data.slug);
                     localStorage.setItem('tradsiee_token', data.access_token);
+                    setTimeout(() => { window.location.href = '[[PATH_PORTAL]]'; }, 500);
+                } else if (res.status === 403 && data.detail === "EMAIL_NOT_VERIFIED") {
+                    // Handle banner redirect for unverified emails
+                    localStorage.setItem('tradsiee_slug', data.slug);
                     setTimeout(() => { window.location.href = '[[PATH_PORTAL]]'; }, 500);
                 } else {
                     toast(data.detail || 'Access denied. Please check your credentials.');
