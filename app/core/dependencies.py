@@ -10,12 +10,12 @@ from pydantic import BaseModel, constr, EmailStr
 
 from app.core.config import (
     supabase_admin, get_supabase_user_client, twilio_client, TEFLON_SERVICE_SID,
-    verification_codes, sms_last_sent, registration_attempts, FRONTEND_URL, logger
+    verification_codes, sms_last_sent, registration_attempts, lead_submissions, FRONTEND_URL, logger
 )
 
 security = HTTPBearer()
 
-# --- Pydantic Models ---
+# ... Pydantic Models ...
 
 class ForgotPasswordSchema(BaseModel):
     email: EmailStr
@@ -63,6 +63,13 @@ def is_rate_limited(ip: str, limit_type: str = "sms") -> bool:
             return True
         valid_attempts.append(now)
         registration_attempts[ip] = valid_attempts
+    elif limit_type == "lead_submit":
+        attempts = lead_submissions.get(ip, [])
+        valid_attempts = [t for t in attempts if (now - t).total_seconds() < 3600] # max 10 leads per hour per IP
+        if len(valid_attempts) >= 10:
+            return True
+        valid_attempts.append(now)
+        lead_submissions[ip] = valid_attempts
     return False
 
 async def generate_unique_slug(name: str) -> str:

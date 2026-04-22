@@ -82,10 +82,29 @@ async def loader_js(request: Request, slug: str):
 @router.get("/widget/{slug}", response_class=HTMLResponse)
 async def get_widget_ui(slug: str):
     import app.core.config as config
+    from app.core.dependencies import run_sync
+    from app.core.config import supabase_admin
+
     content = config.WIDGET_TEMPLATE_CACHE or "Template missing."
     c_name = os.getenv("CLOUDINARY_NAME", "MISSING")
-    logger.info(f"WIDGET_SERVED: slug={slug} | cloudinary={c_name}")
-    return content.replace('[[SLUG_PLACE_HOLDER]]', slug)
+    
+    # Fetch business name based on slug
+    try:
+        res = await run_sync(supabase_admin.table("tradies").select("business_name").eq("slug", slug).single().execute)
+        biz_name = res.data.get("business_name") if res.data else "a Professional"
+    except Exception:
+        biz_name = "a Professional"
+        
+    biz_initial = biz_name[0].upper() if biz_name else "T"
+
+    logger.info(f"WIDGET_SERVED: slug={slug} | cloudinary={c_name} | biz_name={biz_name}")
+    
+    # Inject variables
+    content = content.replace('[[SLUG_PLACEHOLDER]]', slug)
+    content = content.replace('[[BUSINESS_NAME]]', biz_name)
+    content = content.replace('[[BUSINESS_INITIAL]]', biz_initial)
+    
+    return content
 
 @router.get("/", response_class=HTMLResponse)
 async def serve_home():

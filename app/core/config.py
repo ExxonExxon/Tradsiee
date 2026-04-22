@@ -49,6 +49,7 @@ cloudinary.config(
 verification_codes = {}
 sms_last_sent = {}
 registration_attempts = {}
+lead_submissions = {}
 
 # Template Caches
 WIDGET_TEMPLATE_CACHE = None

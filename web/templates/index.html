@@ -64,8 +64,10 @@ through video-based problem descriptions.
         #tradsiee-widget-root .ts-upload-zone { border: 2px dashed rgba(0,0,0,0.1); border-radius: 20px; padding: 32px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: #F2F2F7; position: relative; }
         #tradsiee-widget-root .ts-upload-zone:hover { border-color: #007AFF; background: rgba(0,122,255,0.04); }
         #tradsiee-widget-root .ts-upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-        #tradsiee-widget-root .ts-video-preview { width: 100%; border-radius: 16px; overflow: hidden; background: #000; margin-top: 12px; display: none; position: relative; }
-        #tradsiee-widget-root .ts-video-preview video { width: 100%; max-height: 180px; object-fit: cover; display: block; }
+        #tradsiee-widget-root .ts-video-preview { width: 100%; border-radius: 16px; overflow: hidden; background: #000; margin-top: 12px; display: none; position: relative; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        #tradsiee-widget-root .ts-video-preview video { width: 100%; max-height: 240px; object-fit: cover; display: block; border-radius: 16px; }
+        #tradsiee-widget-root .ts-retake-btn { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); color: #FF3B30; border: none; padding: 8px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; }
+        #tradsiee-widget-root .ts-retake-btn:hover { background: #fff; transform: scale(1.05); }
         #tradsiee-widget-root .ts-upload-progress { display: none; margin-top: 12px; }
         #tradsiee-widget-root .ts-upload-progress-track { background: #F2F2F7; border-radius: 99px; height: 5px; overflow: hidden; }
         #tradsiee-widget-root .ts-upload-progress-fill { height: 100%; width: 0%; background: #007AFF; border-radius: 99px; transition: width 0.15s ease; }
@@ -80,10 +82,9 @@ through video-based problem descriptions.
 <div id="tradsiee-widget-root">
     <div class="ts-card">
         <div class="ts-header">
-            <div class="ts-logo">T</div>
             <div class="ts-header-text">
-                <h3>Get an Instant Quote</h3>
-                <p>Send a quick video — we'll get back to you fast.</p>
+                <h3 style="font-size: 18px; margin-bottom: 4px;">Send a video to [[BUSINESS_NAME]]</h3>
+                <p style="font-size: 13px;">Send a quick video — we'll get back to you fast.</p>
             </div>
         </div>
 
@@ -94,34 +95,52 @@ through video-based problem descriptions.
             <div class="ts-progress-dot active" id="prog-1"></div>
             <div class="ts-progress-dot" id="prog-2"></div>
             <div class="ts-progress-dot" id="prog-3"></div>
+            <div class="ts-progress-dot" id="prog-4"></div>
         </div>
 
         <!-- [STEP_1: IDENTITY_ACQUISITION] 
              Captures primary lead metadata.
         -->
         <div class="ts-step active" id="step-1">
-            <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;flex-direction:column;gap:16px;">
                 <div>
                     <span class="ts-label">Your Details</span>
-                    <div style="display:flex;gap:8px;">
-                        <input class="ts-input" id="ts-first" type="text" placeholder="First name">
-                        <input class="ts-input" id="ts-last"  type="text" placeholder="Last name">
+                    <div style="display:flex;gap:10px;">
+                        <input class="ts-input" id="ts-first" type="text" placeholder="First name" oninput="tsValidateStep1()">
+                        <input class="ts-input" id="ts-last"  type="text" placeholder="Last name" oninput="tsValidateStep1()">
                     </div>
                 </div>
                 <div>
+                    <span class="ts-label">Phone Number</span>
                     <div class="ts-phone-row">
-                        <select class="ts-input" id="ts-dial"><option value="+61">🇦🇺 +61</option></select>
-                        <input class="ts-input" style="flex:1;" id="ts-phone" type="tel" placeholder="400 000 000">
+                        <select class="ts-input" id="ts-dial" style="flex: 0 0 90px; padding: 14px 10px; text-align: center; appearance: auto; background-color: #F2F2F7; cursor: pointer;"><option value="+61">🇦🇺 +61</option></select>
+                        <input class="ts-input" style="flex:1;" id="ts-phone" type="tel" placeholder="400 000 000" oninput="tsValidateStep1()">
                     </div>
                 </div>
-                <button class="ts-btn ts-btn-primary" onclick="tsGoStep(2)">Continue</button>
+                <button class="ts-btn ts-btn-primary" id="ts-step1-btn" onclick="tsSendVerification()" disabled style="opacity: 0.4; cursor: not-allowed; margin-top: 8px;">Continue</button>
             </div>
         </div>
 
-        <!-- [STEP_2: PAYLOAD_AQUISITION] 
+        <!-- [STEP_2: PHONE_VERIFICATION] -->
+        <div class="ts-step" id="step-2">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div>
+                    <span class="ts-label">Verify your phone</span>
+                    <p style="font-size:13px;color:#8E8E93;margin-bottom:12px;line-height:1.4;">Enter the 6-digit code we sent to <span id="ts-verify-phone" style="font-weight:700;color:#1C1C1E;"></span>.</p>
+                    <input class="ts-input" id="ts-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="text-align:center;letter-spacing:0.2em;font-size:18px;" oninput="tsValidateStep2()">
+                </div>
+                <button class="ts-btn ts-btn-primary" id="ts-step2-btn" onclick="tsVerifyCode()" disabled style="opacity: 0.4; cursor: not-allowed;">
+                    <span id="ts-verify-label">Verify & Continue</span>
+                    <div class="ts-spinner" id="ts-verify-spinner"></div>
+                </button>
+                <button class="ts-btn" style="background:#F2F2F7;color:#8E8E93;" onclick="tsGoStep(1)">Back</button>
+            </div>
+        </div>
+
+        <!-- [STEP_3: PAYLOAD_AQUISITION] 
              Manages binary video data and textual problem descriptions.
         -->
-        <div class="ts-step" id="step-2">
+        <div class="ts-step" id="step-3">
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div class="ts-upload-zone" id="ts-upload-zone">
                     <input type="file" accept="video/*" capture="environment" id="ts-file-input" onchange="tsHandleFile(this)">
@@ -140,7 +159,11 @@ through video-based problem descriptions.
                 </div>
 
                 <div class="ts-video-preview" id="ts-video-preview">
-                    <video id="ts-video-el" muted playsinline></video>
+                    <button class="ts-retake-btn" onclick="tsRetakeVideo()">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        Retake
+                    </button>
+                    <video id="ts-video-el" controls playsinline></video>
                 </div>
 
                 <textarea class="ts-input" id="ts-desc" placeholder="Describe what you need help with..."></textarea>
@@ -148,18 +171,18 @@ through video-based problem descriptions.
                     <span id="ts-btn-label">Send My Request</span>
                     <div class="ts-spinner" id="ts-spinner"></div>
                 </button>
-                <button class="ts-btn" style="background:#F2F2F7;color:#8E8E93;" onclick="tsGoStep(1)">Back</button>
+                <button class="ts-btn" style="background:#F2F2F7;color:#8E8E93;" onclick="tsGoStep(2)">Back</button>
             </div>
         </div>
 
-        <!-- [STEP_3: TERMINATION_SUCCESS] -->
-        <div class="ts-step" id="step-3">
+        <!-- [STEP_4: TERMINATION_SUCCESS] -->
+        <div class="ts-step" id="step-4">
             <div style="text-align:center;padding:12px 0;">
                 <div style="width:64px;height:64px;background:#F2F2F7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
                     <svg width="30" height="30" fill="none" stroke="#34C759" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/></svg>
                 </div>
                 <h3 style="font-size:20px;font-weight:800;margin-bottom:8px;">Request Sent!</h3>
-                <p style="font-size:13px;color:#8E8E93;">We'll get back to you shortly.</p>
+                <p style="font-size:13px;color:#8E8E93;">[[BUSINESS_NAME]] will get back to you shortly.</p>
             </div>
         </div>
     </div>
@@ -185,6 +208,95 @@ through video-based problem descriptions.
     let tsUploadPromise = null;
     let tsUploadResult  = null;
 
+    /* [FORM_VALIDATION] */
+    function tsValidateStep1() {
+        const first = document.getElementById('ts-first').value.trim();
+        const phone = document.getElementById('ts-phone').value.trim();
+        const btn = document.getElementById('ts-step1-btn');
+        
+        if (first.length > 0 && phone.length >= 8) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = '0.4';
+            btn.style.cursor = 'not-allowed';
+        }
+    }
+
+    async function tsSendVerification() {
+        const phone = document.getElementById('ts-dial').value + document.getElementById('ts-phone').value.replace(/\s+/g, '');
+        const btn = document.getElementById('ts-step1-btn');
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+
+        try {
+            const res = await fetch(`${TS_API}/send-verification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: phone })
+            });
+            if (res.ok) {
+                document.getElementById('ts-verify-phone').textContent = phone;
+                tsGoStep(2);
+            } else if (res.status === 429) {
+                alert("You're requesting too many codes. Please wait a moment.");
+            } else {
+                alert("Failed to send verification code. Please check your number.");
+            }
+        } catch(e) {
+            alert("Network error. Please try again.");
+        }
+        btn.textContent = 'Continue';
+        btn.disabled = false;
+    }
+
+    function tsValidateStep2() {
+        const code = document.getElementById('ts-code').value.trim();
+        const btn = document.getElementById('ts-step2-btn');
+        if (code.length === 6) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = '0.4';
+            btn.style.cursor = 'not-allowed';
+        }
+    }
+
+    async function tsVerifyCode() {
+        const phone = document.getElementById('ts-dial').value + document.getElementById('ts-phone').value.replace(/\s+/g, '');
+        const code = document.getElementById('ts-code').value.trim();
+        const btn = document.getElementById('ts-step2-btn');
+        const label = document.getElementById('ts-verify-label');
+        const spinner = document.getElementById('ts-verify-spinner');
+
+        btn.disabled = true;
+        label.style.display = 'none';
+        spinner.style.display = 'block';
+
+        try {
+            const res = await fetch(`${TS_API}/verify-customer-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: phone, code: code })
+            });
+            if (res.ok) {
+                tsGoStep(3);
+            } else {
+                alert("Invalid verification code. Please try again.");
+            }
+        } catch(e) {
+            alert("Network error. Please try again.");
+        }
+        
+        label.style.display = 'block';
+        spinner.style.display = 'none';
+        btn.disabled = false;
+    }
+
     /* [WIZARD_NAVIGATOR] 
        Toggles active functional views and updates progress visual indicators.
     */
@@ -201,12 +313,37 @@ through video-based problem descriptions.
         tsFileToUpload = input.files[0];
         if (!tsFileToUpload) return;
         document.getElementById('ts-video-el').src = URL.createObjectURL(tsFileToUpload);
+        document.getElementById('ts-upload-zone').style.display = 'none';
         document.getElementById('ts-video-preview').style.display = 'block';
-        tsStartUpload();
+        
+        // Ensure UI resets if they pick a new file
+        document.getElementById('ts-upload-progress').style.display = 'none';
+        document.getElementById('ts-progress-fill').style.width = '0%';
+        tsUploadPromise = null;
+        tsUploadResult = null;
+        if (tsActiveXhr) {
+            tsActiveXhr.abort();
+            tsActiveXhr = null;
+        }
+    }
+
+    function tsRetakeVideo() {
+        tsFileToUpload = null;
+        document.getElementById('ts-file-input').value = '';
+        document.getElementById('ts-video-el').src = '';
+        document.getElementById('ts-video-preview').style.display = 'none';
+        document.getElementById('ts-upload-zone').style.display = 'block';
+        document.getElementById('ts-upload-progress').style.display = 'none';
+        tsUploadPromise = null;
+        tsUploadResult = null;
+        if (tsActiveXhr) {
+            tsActiveXhr.abort();
+            tsActiveXhr = null;
+        }
     }
 
     /* [UPLOAD_STRATEGY: SINGLE_STREAM] */
-    function tsUploadSingle(fill, pct) {
+    function tsUploadSingle(fill, pct, status) {
         return new Promise((resolve, reject) => {
             const fd = new FormData();
             fd.append('file', tsFileToUpload);
@@ -219,10 +356,25 @@ through video-based problem descriptions.
                     const p = Math.min(Math.round((e.loaded / e.total) * 100), 99);
                     fill.style.width = p + '%';
                     pct.textContent  = p + '%';
+                    if (p === 99) status.textContent = 'Processing video... this may take a moment.';
                 }
             };
-            xhr.onload = () => (xhr.status === 200) ? resolve(JSON.parse(xhr.responseText)) : reject();
-            xhr.onerror = () => reject();
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    resolve(JSON.parse(xhr.responseText));
+                } else {
+                    console.error("Cloudinary Upload Error:", xhr.responseText);
+                    status.textContent = 'Upload failed.';
+                    status.style.color = '#FF3B30';
+                    reject(new Error(xhr.responseText));
+                }
+            };
+            xhr.onerror = (e) => {
+                console.error("Cloudinary Network Error", e);
+                status.textContent = 'Network error.';
+                status.style.color = '#FF3B30';
+                reject(new Error("Network error"));
+            };
             xhr.send(fd);
         });
     }
@@ -255,11 +407,29 @@ through video-based problem descriptions.
                         const p = Math.min(Math.round(((start + e.loaded) / total) * 100), 99);
                         fill.style.width = p + '%';
                         pct.textContent  = p + '%';
-                        status.textContent = `Processing part ${i+1}/${count}...`;
+                        if (p === 99) {
+                            status.textContent = 'Processing video... this may take a moment.';
+                        } else {
+                            status.textContent = `Uploading part ${i+1}/${count}...`;
+                        }
                     }
                 };
-                xhr.onload = () => (xhr.status === 200) ? resolve(JSON.parse(xhr.responseText)) : reject();
-                xhr.onerror = () => reject();
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        resolve(JSON.parse(xhr.responseText));
+                    } else {
+                        console.error("Cloudinary Chunk Error:", xhr.responseText);
+                        status.textContent = 'Upload failed.';
+                        status.style.color = '#FF3B30';
+                        reject(new Error(xhr.responseText));
+                    }
+                };
+                xhr.onerror = (e) => {
+                    console.error("Cloudinary Network Error", e);
+                    status.textContent = 'Network error.';
+                    status.style.color = '#FF3B30';
+                    reject(new Error("Network error"));
+                };
                 xhr.send(fd);
             });
         }
@@ -274,17 +444,25 @@ through video-based problem descriptions.
         const pct  = document.getElementById('ts-progress-pct');
         const status = document.getElementById('ts-progress-status');
         document.getElementById('ts-upload-progress').style.display = 'block';
+        status.textContent = 'Uploading...';
+        status.style.color = '#8E8E93';
         
-        tsUploadPromise = (async () => {
-            const result = tsFileToUpload.size > 95 * 1024 * 1024
-                ? await tsUploadChunked(fill, pct, status)
-                : await tsUploadSingle(fill, pct);
+        try {
+            tsUploadPromise = tsFileToUpload.size > 95 * 1024 * 1024
+                ? tsUploadChunked(fill, pct, status)
+                : tsUploadSingle(fill, pct, status);
+                
+            const result = await tsUploadPromise;
             tsUploadResult = result;
             fill.style.width = '100%';
             pct.textContent = '100%';
             status.textContent = 'Ready!';
+            status.style.color = '#34C759';
             return result;
-        })();
+        } catch (error) {
+            // The error is already logged and displayed in the UI by the upload functions
+            tsUploadResult = null;
+        }
     }
 
     /* [LEAD_PERSISTENCE_TRANSACTION] 
@@ -293,10 +471,28 @@ through video-based problem descriptions.
     async function tsSubmit() {
         if (!tsFileToUpload) return;
         const btn = document.getElementById('ts-submit-btn');
+        const btnLabel = document.getElementById('ts-btn-label');
+        const spinner = document.getElementById('ts-spinner');
+        
         btn.disabled = true;
-        document.getElementById('ts-spinner').style.display = 'block';
+        btnLabel.style.display = 'none';
+        spinner.style.display = 'block';
+        
         try {
-            if (!tsUploadResult) await tsUploadPromise;
+            // Wait for or trigger the upload
+            if (!tsUploadResult) {
+                if (!tsUploadPromise) {
+                    await tsStartUpload();
+                } else {
+                    await tsUploadPromise;
+                }
+            }
+            
+            // If upload failed, abort
+            if (!tsUploadResult || !tsUploadResult.secure_url) {
+                throw new Error("Upload failed");
+            }
+
             const res = await fetch(`${TS_API}/submit-lead-data/${TS_SLUG}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -308,11 +504,23 @@ through video-based problem descriptions.
                     last_name:            document.getElementById('ts-last').value
                 })
             });
-            if (res.ok) tsGoStep(3);
-        } catch (e) { alert('Submission failed. Please try again.'); }
-        btn.disabled = false;
-        document.getElementById('ts-spinner').style.display = 'none';
+            
+            if (res.ok) {
+                tsGoStep(4);
+            } else if (res.status === 429) {
+                alert("You're sending too many requests. Please wait a moment.");
+            } else {
+                throw new Error("API failed");
+            }
+        } catch (e) { 
+            alert('Submission failed. Please check your connection and try again.'); 
+        } finally {
+            btn.disabled = false;
+            btnLabel.style.display = 'block';
+            spinner.style.display = 'none';
+        }
     }
+
 </script>
 </body>
 </html>

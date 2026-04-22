@@ -1,13 +1,37 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from app.core.config import (
     supabase_admin, LEAD_LIMITS_ENABLED, twilio_client, TEFLON_SERVICE_SID, 
-    FRONTEND_URL, logger
+    TWILIO_VERIFY_SERVICE_SID, FRONTEND_URL, logger
 )
 from app.core.dependencies import (
     run_sync, format_phone, get_current_user, LeadData, AuthenticatedTradie
 )
 
 router = APIRouter(tags=["Leads"])
+
+@router.post("/verify-customer-code")
+async def verify_customer_code(data: dict, request: Request):
+    phone, code = data.get("phone"), data.get("code")
+    if not phone or not code:
+        raise HTTPException(status_code=400, detail="Phone and code required.")
+        
+    formatted_phone = format_phone(phone)
+    if not twilio_client:
+        raise HTTPException(status_code=500, detail="SMS service unavailable.")
+
+    try:
+        check = await run_sync(twilio_client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID).verification_checks.create,
+            to=formatted_phone,
+            code=code
+        )
+        if check.status != "approved":
+            raise HTTPException(status_code=400, detail="Invalid verification code.")
+        return {"status": "success"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"VERIFY_CHECK_FAILURE: {e}")
+        raise HTTPException(status_code=400, detail="Verification check failed.")
 
 @router.get("/get-leads/{slug}")
 async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: AuthenticatedTradie = Depends(get_current_user)):
@@ -28,7 +52,13 @@ async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: Authent
     }
 
 @router.post("/submit-lead-data/{slug}")
-async def submit_lead_data(slug: str, data: LeadData, background_tasks: BackgroundTasks):
+async def submit_lead_data(slug: str, data: LeadData, background_tasks: BackgroundTasks, request: Request):
+    from app.core.dependencies import is_rate_limited
+    client_ip = request.client.host if request else "unknown"
+    if is_rate_limited(client_ip, "lead_submit"):
+        logger.warning(f"RATE_LIMIT_EXCEEDED: lead_submit from ip={client_ip}")
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait before submitting another lead.")
+
     tradie_res = await run_sync(supabase_admin.table("tradies").select("id, phone_number, business_name, credits").eq("slug", slug).single().execute)
     if not tradie_res.data: raise HTTPException(status_code=404, detail="Not found.")
 
