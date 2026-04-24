@@ -28,44 +28,45 @@
            Defines the semantic color palette for both light and dark operational modes.
         */
         :root {
-            --bg: #F2F2F7;
+            --bg: #F8F9FA;
             --card: #FFFFFF;
+            --card-rgb: 255, 255, 255;
             --surface: #FFFFFF;
             --blue: #007AFF;
-            --blue-bg: rgba(0,122,255,0.08);
-            --blue-light: rgba(0,122,255,0.08);
+            --blue-bg: rgba(0,122,255,0.06);
+            --blue-light: rgba(0,122,255,0.06);
             --text: #1C1C1E;
-            --text-muted: #8E8E93;
+            --text-muted: #636366;
             --muted: #8E8E93;
-            --border: rgba(0,0,0,0.07);
+            --border: rgba(0,0,0,0.08);
             --red: #FF3B30;
-            --red-bg: rgba(255,59,48,0.08);
+            --red-bg: rgba(255,59,48,0.06);
             --green: #34C759;
-            --green-bg: rgba(52,199,89,0.08);
+            --green-bg: rgba(52,199,89,0.06);
             --orange: #FF9500;
-            --orange-bg: rgba(255,149,0,0.08);
+            --orange-bg: rgba(255,149,0,0.06);
             --card-shadow:
-                0 2px 0 rgba(255,255,255,0.8) inset,
-                0 20px 60px rgba(0,0,0,0.06),
-                0 4px 16px rgba(0,0,0,0.04);
+                0 1px 3px rgba(0,0,0,0.02),
+                0 8px 24px rgba(0,0,0,0.04);
         }
 
         /* [THEME_ADAPTATION: DARK_MODE] 
            Inverts tokens to maintain accessibility and visual consistency in low-light environments.
         */
         body.dark {
-            --bg: #1C1C1E;
-            --card: #2C2C2E;
-            --surface: #2C2C2E;
-            --border: rgba(255,255,255,0.09);
-            --text: #F2F2F7;
+            --bg: #000000;
+            --card: #1C1C1E;
+            --card-rgb: 28, 28, 30;
+            --surface: #1C1C1E;
+            --border: rgba(255,255,255,0.12);
+            --text: #FFFFFF;
             --text-muted: #8E8E93;
             --muted: #8E8E93;
-            --card-shadow: 0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.2);
-            --blue-bg: rgba(0,122,255,0.14);
-            --red-bg: rgba(255,59,48,0.14);
-            --green-bg: rgba(52,199,89,0.14);
-            --orange-bg: rgba(255,149,0,0.14);
+            --card-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
+            --blue-bg: rgba(0,122,255,0.12);
+            --red-bg: rgba(255,59,48,0.12);
+            --green-bg: rgba(52,199,89,0.12);
+            --orange-bg: rgba(255,149,0,0.12);
         }
 
         /* [CORE_LAYOUT_RESET] */
@@ -92,8 +93,8 @@
             content: '';
             position: fixed; inset: 0;
             background-image:
-                linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
+                linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
             background-size: 40px 40px;
             z-index: 0;
             pointer-events: none;
@@ -118,30 +119,35 @@
         }
 
         @media (max-width: 1024px) {
-            .app-shell { grid-template-columns: 1fr; }
+            .app-shell { grid-template-columns: 1fr; height: auto; min-height: 100dvh; overflow: visible; }
             .sidebar { display: none !important; }
             .mobile-nav { display: flex !important; }
-            .main-stage { padding-bottom: 92px; }
+            .main-stage { padding-bottom: 120px; height: auto; overflow: visible; }
+            body { overflow-y: auto; height: auto; }
         }
 
         /* [UI_COMPONENT: MOBILE_NAVIGATION] */
         .mobile-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
-            background: rgba(242,242,247,0.88);
-            backdrop-filter: blur(20px);
+            background: rgba(var(--card-rgb), 0.8);
+            backdrop-filter: blur(20px) saturate(160%);
+            -webkit-backdrop-filter: blur(20px) saturate(160%);
             border-top: 1px solid var(--border);
             display: none; justify-content: space-around; align-items: center;
-            padding: 12px 16px 24px; z-index: 400;
+            padding: 12px 16px 34px; z-index: 2000;
+            box-shadow: 0 -1px 0 rgba(255,255,255,0.05) inset;
         }
-        body.dark .mobile-nav { background: rgba(28,28,30,0.88); }
+        body.dark .mobile-nav { background: rgba(var(--card-rgb), 0.8); border-top: 1px solid rgba(255,255,255,0.1); }
         .m-nav-item {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            color: var(--muted); font-size: 10px; font-weight: 800;
-            text-transform: uppercase; letter-spacing: 0.08em;
-            user-select: none; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            color: var(--muted); font-size: 10px; font-weight: 700;
+            text-transform: none; letter-spacing: -0.2px;
+            user-select: none; cursor: pointer; opacity: 0.6;
+            transition: all 0.2s;
         }
-        .m-nav-item.active { color: var(--blue); }
-        .m-nav-item svg { width: 22px; height: 22px; stroke-width: 2.5; }
+        .m-nav-item.active { color: var(--text); opacity: 1; }
+        .m-nav-item svg { width: 24px; height: 24px; stroke-width: 2.2; }
+        .m-nav-item.active svg { color: var(--blue); }
 
         /* [UI_COMPONENT: SIDEBAR] 
            Primary desktop navigation containing workspace and account controls.
@@ -149,47 +155,47 @@
         .sidebar {
             background: var(--card);
             border-right: 1px solid var(--border);
-            padding: 28px 16px 24px;
+            padding: 32px 20px;
             display: flex;
             height: 100dvh;
             flex-direction: column;
             overflow-y: auto;
-            gap: 4px;
+            gap: 6px;
             z-index: 100;
         }
 
         .sidebar-logo {
             display: flex; align-items: center; gap: 12px;
-            padding: 0 8px; margin-bottom: 32px;
+            padding: 0 12px; margin-bottom: 32px;
         }
         .sidebar-logo .mark {
             width: 40px; height: 40px;
-            background: #000; border-radius: 13px;
+            background: #000; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
             color: #fff; font-weight: 900; font-size: 20px;
             flex-shrink: 0; position: relative; overflow: hidden;
         }
-        .sidebar-logo span { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
+        .sidebar-logo span { font-size: 22px; font-weight: 900; letter-spacing: -0.8px; }
 
         .nav-group-label {
-            font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
-            text-transform: uppercase; color: var(--muted); opacity: 0.5;
-            padding: 0 12px; margin: 16px 0 6px;
+            font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+            color: var(--muted); opacity: 0.8;
+            padding: 0 12px; margin: 20px 0 8px;
         }
 
         .nav-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 11px 14px; border-radius: 14px;
-            font-size: 14px; font-weight: 700; color: var(--muted);
-            cursor: pointer; transition: all 0.18s ease; user-select: none;
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; border-radius: 12px;
+            font-size: 14px; font-weight: 600; color: var(--muted);
+            cursor: pointer; transition: all 0.2s cubic-bezier(0.2,0,0,1); user-select: none;
             border: 1px solid transparent;
         }
         .nav-item:hover { background: var(--bg); color: var(--text); }
         .nav-item.active {
-            background: #000; color: #fff;
+            background: var(--blue-bg); color: var(--blue);
         }
-        body.dark .nav-item.active { background: var(--blue); }
-        .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 2.2; }
+        body.dark .nav-item.active { background: var(--blue-bg); color: var(--blue); }
+        .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; stroke-width: 2; }
 
         /* [UI_COMPONENT: CREDITS_WIDGET] 
            Visual indicator of business subscription health and lead quotas.
@@ -198,176 +204,181 @@
             margin: auto 0 0;
             background: var(--bg);
             border-radius: 20px;
-            padding: 16px;
+            padding: 20px;
             border: 1px solid var(--border);
         }
         .credits-pill .plan-header {
             display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
         }
         .credits-pill .plan-badge {
-            font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em;
-            padding: 4px 10px; border-radius: 99px;
-            background: rgba(52,199,89,0.1); border: 1px solid rgba(52,199,89,0.2);
-            color: #1D7A3A;
+            font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+            padding: 4px 12px; border-radius: 99px;
+            background: var(--card); border: 1px solid var(--border);
+            color: var(--text);
         }
-        .credits-pill .bar-track { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
-        .credits-pill .bar-fill { height: 100%; border-radius: 99px; background: #000; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        body.dark .credits-pill .bar-fill { background: var(--blue); }
-        .credits-pill .count { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; }
-        .credits-pill .count span { font-size: 11px; font-weight: 700; color: var(--muted); margin-left: 3px; }
+        .credits-pill .bar-track { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+        .credits-pill .bar-fill { height: 100%; border-radius: 99px; background: var(--blue); transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .credits-pill .count { font-size: 24px; font-weight: 900; letter-spacing: -0.8px; line-height: 1; }
+        .credits-pill .count span { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 4px; }
 
         .logout-btn {
-            display: flex; align-items: center; gap: 8px;
-            padding: 11px 14px; border-radius: 14px; border: none; background: none;
-            font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700;
-            color: var(--red); cursor: pointer; width: 100%; margin-top: 8px;
-            transition: all 0.18s;
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px; border-radius: 12px; border: none; background: none;
+            font-family: inherit; font-size: 14px; font-weight: 600;
+            color: var(--red); cursor: pointer; width: 100%; margin-top: 12px;
+            transition: all 0.2s;
         }
         .logout-btn:hover { background: var(--red-bg); }
 
         /* [UI_COMPONENT: MAIN_STAGE] 
            The primary scrollable area where views are rendered and transitioned.
         */
-        .main-stage { display: flex; flex-direction: column; overflow-y: auto; min-width: 0; }
+        .main-stage { display: flex; flex-direction: column; overflow-y: auto; min-width: 0; -webkit-overflow-scrolling: touch; }
 
         .topbar {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 28px 32px 16px; flex-shrink: 0; gap: 16px;
+            padding: 40px 40px 24px; flex-shrink: 0; gap: 16px;
+        }
+        @media (max-width: 1024px) {
+            .topbar { padding: 32px 24px 16px; }
         }
         .topbar-left h1 {
-            font-size: 28px; font-weight: 900; letter-spacing: -0.7px; line-height: 1.1;
+            font-size: 32px; font-weight: 900; letter-spacing: -1.2px; line-height: 1;
         }
-        .topbar-left p { font-size: 13px; color: var(--muted); margin-top: 5px; font-weight: 500; }
-        .topbar-right { display: flex; align-items: center; gap: 10px; }
+        .topbar-left p { font-size: 14px; color: var(--muted); margin-top: 6px; font-weight: 500; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
 
         .icon-btn {
-            width: 44px; height: 44px; border-radius: 14px;
-            border: 1.5px solid var(--border);
+            width: 48px; height: 48px; border-radius: 14px;
+            border: 1px solid var(--border);
             background: var(--card);
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); color: var(--muted);
+            cursor: pointer; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); color: var(--text);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
-        .icon-btn:hover { background: var(--bg); color: var(--text); transform: translateY(-1px); }
-        .icon-btn svg { width: 20px; height: 20px; stroke-width: 2.2; }
-        .icon-btn.spinning svg { animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .icon-btn:hover { background: var(--bg); transform: translateY(-1px); }
+        .icon-btn svg { width: 20px; height: 20px; stroke-width: 2; }
 
         /* [UI_COMPONENT: VIEW_SECTIONS] 
            Containers for specific application logic (Pipeline, Archive, Settings).
         */
-        .view-section { display: none; flex: 1; flex-direction: column; overflow: visible; padding: 8px 32px 0; min-width: 0; min-height: 0; }
+        .view-section { display: none; flex: 1; flex-direction: column; overflow: visible; padding: 0 40px; min-width: 0; min-height: 0; }
+        @media (max-width: 1024px) {
+            .view-section { padding: 0 24px 40px; }
+        }
         .view-section.active { display: flex; animation: fadeUp 0.4s cubic-bezier(0.2,0,0,1); }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
         /* [KANBAN_PIPELINE_SYSTEM] 
            Implementation details for the multi-column drag-and-drop lead board.
         */
-        .pipeline-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex: 1; padding-bottom: 24px; min-height: 0; overflow: visible; }
+        .pipeline-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; flex: 1; padding-bottom: 24px; min-height: 0; overflow: visible; }
 
         @media (max-width: 768px) {
-            .pipeline-cols { grid-template-columns: 1fr; overflow-y: auto; padding-bottom: 80px; -webkit-overflow-scrolling: touch; }
-            .col-scroll { overflow-y: visible !important; height: auto !important; flex: none !important; }
+            .pipeline-cols { grid-template-columns: 1fr; overflow-y: visible; padding-bottom: 80px; gap: 24px; }
+            .col-scroll { overflow-y: visible !important; height: auto !important; flex: none !important; padding-bottom: 0 !important; }
         }
 
         .col-header {
             display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 14px; padding: 12px 4px; flex-shrink: 0;
-            position: sticky; top: -1px; z-index: 10; background: var(--bg); border-radius: 8px;
+            margin-bottom: 16px; padding: 12px 0; flex-shrink: 0;
+            position: sticky; top: -1px; z-index: 10; background: var(--bg);
         }
-        .col-label { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+        .col-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
         .col-badge {
-            font-size: 14px; font-weight: 900; padding: 6px 16px; border-radius: 99px;
-            text-transform: uppercase; letter-spacing: 0.06em;
+            font-size: 13px; font-weight: 800; padding: 4px 12px; border-radius: 99px;
+            letter-spacing: -0.2px;
         }
         .col-badge.new { background: var(--blue-bg); color: var(--blue); }
         .col-badge.working { background: var(--orange-bg); color: var(--orange); }
 
         .col-scroll {
-            overflow-y: auto; flex: 1; padding: 4px; padding-bottom: 120px; border-radius: 24px;
+            overflow-y: auto; flex: 1; padding-bottom: 120px;
             transition: background 0.3s cubic-bezier(0.2,0,0,1); min-height: 200px;
-            -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
         }
-        .col-scroll.dragging-over { background: rgba(0,122,255,0.04); outline: 2px dashed var(--blue); outline-offset: -4px; }
+        .col-scroll.dragging-over { background: var(--blue-bg); border-radius: 24px; }
 
         /* [UI_COMPONENT: LEAD_CARD] 
            Interactive unit representing a unique customer lead.
         */
         .lead-card {
-            background: var(--card); border-radius: 24px;
-            margin-bottom: 24px; overflow: visible;
+            background: var(--card); border-radius: 20px;
+            margin-bottom: 20px; overflow: hidden;
             user-select: none; -webkit-user-select: none;
             touch-action: pan-y; position: relative; cursor: grab;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
         }
-        .lead-card:hover { transform: translateY(-4px); }
+        .lead-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); }
+        body.dark .lead-card:hover { border-color: rgba(255,255,255,0.2); }
 
         /* [SORTABLE_STATE_DECORATION] */
-        .sortable-ghost { background: rgba(0,122,255,0.06) !important; border: 2px dashed var(--blue) !important; opacity: 0.4 !important; }
-        .sortable-drag { scale: 1.05 !important; rotate: 2deg !important; pointer-events: none !important; }
+        .sortable-ghost { background: var(--blue-bg) !important; border: 1.5px dashed var(--blue) !important; opacity: 0.5 !important; }
+        .sortable-drag { scale: 1.02 !important; rotate: 1deg !important; pointer-events: none !important; box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important; }
 
-        .card-video { height: 115px; background: #000; position: relative; overflow: hidden; cursor: grab; }
-        .card-video video { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; pointer-events: none; }
+        .card-video { height: 130px; background: #000; position: relative; overflow: hidden; cursor: grab; }
+        .card-video video { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; pointer-events: none; }
         .card-video .play-btn {
-            position: absolute; inset: 0; margin: auto; width: 44px; height: 44px;
-            background: rgba(255,255,255,0.2); backdrop-filter: blur(12px);
+            position: absolute; inset: 0; margin: auto; width: 48px; height: 48px;
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(12px);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            color: #fff; border: 1px solid rgba(255,255,255,0.3);
-            transition: all 0.25s cubic-bezier(0.2,0,0,1);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            color: #fff; border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.2s cubic-bezier(0.2,0,0,1);
             cursor: pointer; z-index: 20;
         }
-        .card-video:hover .play-btn { transform: scale(1.1); background: rgba(255,255,255,0.4); border-color: #fff; }
-        .play-btn:active { transform: scale(0.9) !important; }
-        body.dark .card-video .play-btn { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.1); }
+        .card-video:hover .play-btn { transform: scale(1.08); background: rgba(255,255,255,0.25); border-color: #fff; }
 
-        .card-body { padding: 12px 16px 14px; }
-        .card-name { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; color: var(--text); line-height: 1.2; }
-        .card-phone { font-size: 14px; color: var(--text); font-weight: 700; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, monospace; }
-        .card-desc { font-size: 15px; color: var(--text); margin-top: 10px; line-height: 1.5; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; opacity: 0.9; }
+        .card-body { padding: 16px 20px 20px; }
+        .card-name { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; color: var(--text); line-height: 1.2; }
+        .card-phone { font-size: 14px; color: var(--text); font-weight: 600; margin-top: 4px; opacity: 0.7; }
+        .card-desc { font-size: 14px; color: var(--text); margin-top: 12px; line-height: 1.6; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; opacity: 0.8; }
 
-        .card-actions { display: flex; gap: 8px; margin-top: 14px; width: 100%; }
+        .card-actions { display: flex; gap: 8px; margin-top: 20px; width: 100%; }
 
         .card-btn-primary {
             flex: 1; height: 44px; border-radius: 12px; border: none;
             background: #000; color: #fff;
-            font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
             cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
             transition: all 0.2s ease;
         }
+        body.dark .card-btn-primary { background: #fff; color: #000; }
         .card-btn-primary:active { transform: scale(0.96); }
-        .card-btn-primary.working { background: var(--green); }
+        .card-btn-primary.working { background: var(--green); color: #fff; }
 
         /* [UI_UPGRADE: QUICK_ACTIONS] */
         .swipe-reveal {
             position: absolute; inset: 0; display: flex; align-items: center; 
-            padding: 0 24px; font-weight: 900; font-size: 11px; color: #fff;
-            border-radius: 24px; z-index: 0; opacity: 0; text-transform: uppercase;
+            padding: 0 24px; font-weight: 800; font-size: 11px; color: #fff;
+            border-radius: 20px; z-index: 0; opacity: 0; text-transform: uppercase;
             letter-spacing: 0.05em;
         }
         .swipe-reveal.right { background: var(--green); justify-content: flex-start; }
         .swipe-reveal.left { background: var(--red); justify-content: flex-end; }
 
         .card-inner {
-            background: var(--card); border-radius: 23px; position: relative; z-index: 1;
+            background: var(--card); position: relative; z-index: 1;
             transition: transform 0.1s linear;
             height: 100%; width: 100%;
-            border: 1px solid var(--border);
             overflow: hidden;
         }
 
         .card-btn-icon {
-            width: 42px; height: 42px; border-radius: 12px; border: none;
-            background: var(--bg); color: var(--text);
+            width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border);
+            background: var(--card); color: var(--text);
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; transition: all 0.2s;
         }
-        .card-btn-icon svg { width: 18px; height: 18px; stroke-width: 2.5; }
-        .card-btn-icon:active { transform: scale(0.9); }
-        body.dark .card-btn-icon { background: rgba(255,255,255,0.05); }
+        .card-btn-icon:hover { background: var(--bg); }
+        .card-btn-icon svg { width: 18px; height: 18px; stroke-width: 2.2; }
 
         /* [UI_UPGRADE: CONTROLS & TRIAGE] */
         .freshness-badge {
-            font-size: 11px; font-weight: 700; color: var(--muted);
-            margin-bottom: 8px; display: inline-block;
+            font-size: 11px; font-weight: 700; color: var(--blue);
+            margin-bottom: 6px; display: inline-block; background: var(--blue-bg);
+            padding: 2px 10px; border-radius: 6px;
         }
 
         .filter-pill {
@@ -395,15 +406,16 @@
         body.dark .card-checkbox { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.05); }
 
         .batch-bar {
-            position: fixed; bottom: -100px; left: 24px; right: 24px;
+            position: fixed; bottom: 32px; left: 24px; right: 24px;
             background: var(--card); border: 1.5px solid var(--blue);
             padding: 16px 24px; border-radius: 24px; z-index: 1000;
             box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-            transition: bottom 0.4s cubic-bezier(0.2,0,0,1);
+            transition: transform 0.4s cubic-bezier(0.2,0,0,1), opacity 0.3s;
             display: flex; align-items: center;
+            transform: translateY(200px); opacity: 0; pointer-events: none;
         }
-        .batch-bar.open { bottom: 24px; }
-        @media (max-width: 1024px) { .batch-bar.open { bottom: 94px; } }
+        .batch-bar.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        @media (max-width: 1024px) { .batch-bar.open { transform: translateY(-80px); } }
 
         .lead-card.selectable { cursor: pointer; }
         .lead-card.selected { border: 2.5px solid var(--blue) !important; background: var(--blue-bg); }
@@ -429,7 +441,7 @@
 
         .settings-card {
             background: var(--card); border-radius: 20px; padding: 24px;
-            border: 1px solid var(--border); box-shadow: var(--card-shadow);
+            border: 1px solid var(--border);
             display: flex; flex-direction: column;
         }
         .settings-card.full { grid-column: 1 / -1; }
@@ -437,47 +449,51 @@
         .settings-card p { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.4; }
 
         .settings-row {
-            display: grid; grid-template-columns: 1fr 2fr; gap: 40px;
-            padding: 40px 0; border-bottom: 1px solid var(--border);
+            display: grid; grid-template-columns: 280px 1fr; gap: 48px;
+            padding: 48px 0; border-bottom: 1px solid var(--border);
         }
         @media (max-width: 1024px) {
-            .settings-row { grid-template-columns: 1fr; gap: 20px; padding: 24px 0; }
+            .settings-row { grid-template-columns: 1fr; gap: 20px; padding: 32px 0; }
         }
-        .settings-info h3 { font-size: 18px; font-weight: 900; color: var(--text); margin-bottom: 8px; letter-spacing: -0.4px; }
-        .settings-info p { font-size: 14px; color: var(--muted); font-weight: 500; line-height: 1.5; max-width: 320px; }
+        .settings-info h3 { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 8px; letter-spacing: -0.5px; }
+        .settings-info p { font-size: 14px; color: var(--muted); font-weight: 500; line-height: 1.6; max-width: 280px; }
         
-        .settings-action .settings-card { margin-bottom: 0; box-shadow: var(--card-shadow); border-radius: 24px; padding: 32px; }
+        .settings-action .settings-card { margin-bottom: 0; border-radius: 24px; padding: 32px; border: 1px solid var(--border); }
 
-        .settings-label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; margin-top: 16px; }
+        .settings-label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; margin-top: 16px; }
         .settings-input { 
-            width: 100%; padding: 12px 16px; border-radius: 12px; border: 1.5px solid var(--border);
+            width: 100%; padding: 14px 18px; border-radius: 14px; border: 1.5px solid var(--border);
             background: var(--bg); color: var(--text); font-family: inherit; font-size: 14px; font-weight: 600;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.2,0,0,1);
         }
-        .settings-input:focus { outline: none; border-color: var(--blue); }
+        .settings-input:focus { outline: none; border-color: var(--blue); background: var(--card); box-shadow: 0 0 0 4px var(--blue-bg); }
 
-        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
         .info-row:last-child { border-bottom: none; }
-        .info-row-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .info-row-label { font-size: 12px; font-weight: 700; color: var(--muted); }
         .info-row-value { font-size: 14px; font-weight: 600; color: var(--text); }
-        .info-row-value.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: var(--bg); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+        .info-row-value.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: var(--bg); padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); }
 
         .btn-primary-sm {
-            padding: 10px 16px; background: #000; color: #fff; border: none; border-radius: 10px;
-            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-            cursor: pointer; transition: all 0.2s;
-            width: fit-content;
+            padding: 12px 20px; background: #000; color: #fff; border: none; border-radius: 12px;
+            font-size: 12px; font-weight: 700; text-transform: none; letter-spacing: -0.2px;
+            cursor: pointer; transition: all 0.2s cubic-bezier(0.2,0,0,1);
+            width: fit-content; display: inline-flex; align-items: center; justify-content: center;
         }
-        .btn-primary-sm:hover { opacity: 0.8; }
-        body.dark .btn-primary-sm { background: var(--blue); }
+        body.dark .btn-primary-sm { background: #fff; color: #000; }
+        .btn-primary-sm:hover { transform: translateY(-1px); opacity: 0.9; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn-primary-sm:active { transform: translateY(0); }
 
         .code-block {
-            background: #0D1117; color: #7EE787; border-radius: 12px;
-            padding: 16px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px;
-            line-height: 1.5; overflow-x: auto; white-space: pre;
-            border: 1px solid rgba(255,255,255,0.05);
-            margin-bottom: 4px;
+            background: #000; color: #7EE787; border-radius: 16px;
+            padding: 24px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px;
+            line-height: 1.6; overflow-x: hidden; white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 12px;
+            position: relative;
         }
+        body.dark .code-block { background: #111; }
 
         .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
         .toggle-label { font-size: 14px; font-weight: 600; color: var(--text); }
@@ -812,12 +828,17 @@
             <div class="settings-row">
                 <div class="settings-info">
                     <h3>Installation</h3>
-                    <p>Embed this code into your website's header to enable the Tradsiee widget.</p>
+                    <p>Embed this code into your website's header to enable the Tradsiee lead widget.</p>
                 </div>
                 <div class="settings-action">
                     <div class="settings-card">
-                        <div class="code-block" id="embed-code" style="margin-bottom: 16px;">Loading script...</div>
-                        <button class="btn-primary-sm" style="width: 100%;" onclick="copyEmbed()">Copy Installation Code</button>
+                        <div style="position: relative;">
+                            <div class="code-block" id="embed-code">Loading script...</div>
+                        </div>
+                        <button class="btn-primary-sm" style="width: 100%; height: 48px;" onclick="copyEmbed()" id="copy-embed-btn">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                            Copy Installation Code
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1254,7 +1275,7 @@
        Direct DOM manipulation based on current state.
     */
     function updateUI() {
-        const limitsEnabled = TRADSIEE_ENV.leadLimitsEnabled;
+        const limitsEnabled = state.limitsEnabled;
         const creditsNum = document.getElementById('credits-num');
         const planBadge = document.getElementById('plan-badge-text');
         const barContainer = document.getElementById('credits-bar-container');
@@ -1379,6 +1400,7 @@
 
         // Video Locking Logic (90 Days for Archived Leads on Free Plan)
         const isLocked = state.limitsEnabled && l.status === 'archived' && (diffHrs > (90 * 24));
+        const isProcessing = l.video_url === 'https://processing.waiting.video';
 
         div.innerHTML = `
             <div class="swipe-reveal right">Accept Job</div>
@@ -1390,11 +1412,18 @@
             </div>
             <div class="card-inner">
                 <div class="card-video" style="${isLocked ? 'filter: grayscale(1) blur(4px); pointer-events: none;' : ''}">
-                    <video src="${escapeHTML(l.video_url)}" muted loop playsinline></video>
-                    ${isLocked ? '' : `
-                        <div class="play-btn no-drag" onclick="openVideo('${escapeHTML(l.video_url)}')">
-                            <svg fill="currentColor" viewBox="0 0 24 24" width="26" height="26"><path d="M8 5v14l11-7z"/></svg>
+                    ${isProcessing ? `
+                        <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#111; color:#fff; gap:12px;">
+                            <div class="icon-btn spinning" style="border:none; background:none; color:var(--blue);"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></div>
+                            <span style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; opacity:0.7;">Optimizing Video...</span>
                         </div>
+                    ` : `
+                        <video src="${escapeHTML(l.video_url)}" muted loop playsinline onerror="this.parentElement.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1c1c1e;color:#666;font-size:10px;font-weight:800;text-transform:uppercase;\'>Video Unavailable</div>'"></video>
+                        ${isLocked ? '' : `
+                            <div class="play-btn no-drag" onclick="openVideo('${escapeHTML(l.video_url)}')">
+                                <svg fill="currentColor" viewBox="0 0 24 24" width="26" height="26"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                        `}
                     `}
                 </div>
                 ${isLocked ? `
@@ -1458,37 +1487,48 @@
             const inner = card.querySelector('.card-inner');
             const revealRight = card.querySelector('.swipe-reveal.right');
             const revealLeft = card.querySelector('.swipe-reveal.left');
-            let startX = 0;
-            let currentX = 0;
+            let startX = 0, startY = 0;
+            let currentX = 0, currentY = 0;
             let isDragging = false;
+            let isVerticalScroll = false;
             const threshold = 110; 
 
             card.addEventListener('touchstart', (e) => {
                 startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
                 inner.style.transition = 'none';
                 isDragging = true;
+                isVerticalScroll = false;
             }, { passive: true });
 
             card.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
+                if (!isDragging || isVerticalScroll) return;
+                
                 currentX = e.touches[0].clientX - startX;
-                
-                if (Math.abs(currentX) > 140) {
-                    const extra = Math.abs(currentX) - 140;
-                    currentX = (currentX > 0 ? 140 : -140) + (extra * 0.2 * (currentX > 0 ? 1 : -1));
-                }
+                currentY = e.touches[0].clientY - startY;
 
-                inner.style.transform = `translateX(${currentX}px)`;
+                // Detect if user is trying to scroll vertically
+                if (Math.abs(currentY) > Math.abs(currentX) * 1.5 && Math.abs(currentY) > 5) {
+                    isVerticalScroll = true;
+                    isDragging = false;
+                    inner.style.transform = 'translateX(0)';
+                    return;
+                }
                 
-                if (currentX > 20) {
-                    revealRight.style.opacity = Math.min(1, currentX / 60);
-                    revealLeft.style.opacity = 0;
-                } else if (currentX < -20) {
-                    revealLeft.style.opacity = Math.min(1, Math.abs(currentX) / 60);
-                    revealRight.style.opacity = 0;
-                } else {
-                    revealRight.style.opacity = 0;
-                    revealLeft.style.opacity = 0;
+                // If it's a horizontal swipe, prevent page scroll to make it feel "tight"
+                if (Math.abs(currentX) > 10) {
+                    inner.style.transform = `translateX(${currentX}px)`;
+                    
+                    if (currentX > 20) {
+                        revealRight.style.opacity = Math.min(1, currentX / 60);
+                        revealLeft.style.opacity = 0;
+                    } else if (currentX < -20) {
+                        revealLeft.style.opacity = Math.min(1, Math.abs(currentX) / 60);
+                        revealRight.style.opacity = 0;
+                    } else {
+                        revealRight.style.opacity = 0;
+                        revealLeft.style.opacity = 0;
+                    }
                 }
             }, { passive: true });
 
@@ -2026,7 +2066,18 @@
     }
 
     async function copyEmbed() {
-        try { await navigator.clipboard.writeText(document.getElementById('embed-code').textContent); showToast('Copied'); } catch(e) {}
+        const btn = document.getElementById('copy-embed-btn');
+        const originalHTML = btn.innerHTML;
+        try { 
+            await navigator.clipboard.writeText(document.getElementById('embed-code').textContent); 
+            showToast('Code copied to clipboard', 'success');
+            btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" style="margin-right:8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            btn.style.background = 'var(--green)';
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.style.background = '';
+            }, 2000);
+        } catch(e) { showToast('Failed to copy', 'error'); }
     }
 
     function switchView(v) {
@@ -2040,8 +2091,19 @@
             if(document.getElementById(`m-nav-${n}`)) document.getElementById(`m-nav-${n}`).classList.toggle('active', n === v);
             if(document.getElementById(`view-${n}`)) document.getElementById(`view-${n}`).classList.toggle('active', n === v);
         });
-        document.getElementById('view-title').textContent = v === 'pipeline' ? 'Workflow' : (v === 'archive' ? 'Archive' : v.charAt(0).toUpperCase() + v.slice(1));
-        renderData();
+
+        // Update titles
+        const titles = {
+            'pipeline': { main: 'Active Workflow', sub: 'Process your incoming business opportunities.' },
+            'archive': { main: 'Lead Archive', sub: 'Search and review your past customer engagements.' },
+            'settings': { main: 'Workspace Settings', sub: 'Manage your business profile and security.' }
+        };
+        
+        document.getElementById('view-title').textContent = titles[v].main;
+        document.getElementById('view-sub').textContent = titles[v].sub;
+
+        if (v !== 'settings') renderData();
+        window.scrollTo(0,0);
     }
 
     function logout() { localStorage.clear(); window.location.href = '[[PATH_LOGIN]]'; }
