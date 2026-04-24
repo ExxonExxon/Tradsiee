@@ -33,15 +33,27 @@ async def verify_customer_code(data: dict, request: Request):
         raise HTTPException(status_code=400, detail="Check failed.")
 
 @router.post("/upload-raw-video")
-async def upload_raw_video(video: UploadFile = File(...)):
+async def upload_raw_video(request: Request, video: UploadFile = File(...)):
     temp_id = str(uuid.uuid4())
     upload_dir = "web/static/uploads/raw"
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, f"{temp_id}.mov")
-    async with aiofiles.open(file_path, 'wb') as out_file:
-        while content := await video.read(1024 * 1024):
-            await out_file.write(content)
-    return {"temp_id": temp_id}
+    
+    try:
+        async with aiofiles.open(file_path, 'wb') as out_file:
+            while content := await video.read(1024 * 1024):  # Read in 1MB chunks
+                if await request.is_disconnected():
+                    logger.warning(f"UPLOAD_CANCELLED: Client disconnected during upload of {temp_id}")
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    return {"status": "cancelled"}
+                await out_file.write(content)
+        return {"temp_id": temp_id}
+    except Exception as e:
+        logger.error(f"UPLOAD_FAILURE: {str(e)}")
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail="Upload failed.")
 
 @router.post("/submit-lead-data/{slug}")
 async def submit_lead_data(slug: str, data: LeadData, background_tasks: BackgroundTasks, request: Request):
@@ -101,3 +113,22 @@ async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: Authent
     if biz_res.data["id"] != tradie.id: raise HTTPException(status_code=403, detail="Unauthorized.")
     leads_res = await run_sync(tradie.supabase.table("leads").select("*").order("created_at", desc=True).range(offset, offset + limit - 1).execute)
     return {"business_name": biz_res.data["business_name"], "credits": biz_res.data["credits"], "leads": leads_res.data}
+
+@router.patch("/update-lead-status/{lead_id}")
+async def update_lead_status(lead_id: str, data: dict, tradie: AuthenticatedTradie = Depends(get_current_user)):
+    status = data.get("status")
+    if not status:
+        raise HTTPException(status_code=400, detail="Status required.")
+    
+    # Verify ownership before update
+    lead_check = await run_sync(supabase_admin.table("leads").select("tradie_id").eq("id", lead_id).single().execute)
+    if not lead_check.data:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+    if lead_check.data["tradie_id"] != tradie.id:
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+    
+    res = await run_sync(supabase_admin.table("leads").update({"status": status}).eq("id", lead_id).execute)
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to update status.")
+    
+    return {"status": "success"}

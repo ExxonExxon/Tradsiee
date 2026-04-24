@@ -8,7 +8,7 @@ Tradsiee is a video-first lead generation platform designed to bridge the gap be
 ## Core Tech Stack
 - **API Framework:** FastAPI (Python)
 - **Persistence & Auth:** Supabase (PostgreSQL + GoTrue)
-- **Media Management:** Cloudinary (Unsigned client-side uploads)
+- **Media Management:** Cloudinary (Server-side signed uploads via FFmpeg pipeline)
 - **Communications:** Twilio SMS API
 - **UI/UX:** Tailwind CSS (CDN), Vanilla JavaScript, Chart.js
 
@@ -19,6 +19,7 @@ The backend is architected for scalability and maintainability, split into speci
 2.  **Core Brain (`app/core/`)**:
     *   `config.py`: Centralized configuration, environment variable resolution, and shared service clients (Supabase, Twilio, Cloudinary).
     *   `dependencies.py`: Reusable logic including `get_current_user` (Auth Guard), `run_sync` (performance), and rate-limiting.
+    *   `video_processor.py`: Asynchronous video engine using FFmpeg to optimize uploads to 1080p before cloud persistence.
 3.  **API Routers (`app/api/`)**:
     *   `auth.py`: Identity management, MFA (SMS), and profile security updates.
     *   `leads.py`: Lead ingestion pipeline and pipeline retrieval.
@@ -34,10 +35,12 @@ The backend is architected for scalability and maintainability, split into speci
 
 ## System Workflow
 1. **The Widget**: A client-side script injected into trade websites via `loader.js`.
-2. **Lead Submission**: Customers provide metadata and a video file (uploaded directly to Cloudinary).
+2. **Lead Submission**: Customers provide metadata and a video file. The video is streamed to the Tradsiee server for processing.
 3. **Data Pipeline**:
-   - Metadata is persisted to Supabase `leads` table.
-   - Background tasks dispatch SMS alerts to the tradie and confirmation to the customer.
+   - **Ingestion**: Raw video is stored temporarily on the server.
+   - **Optimization**: `video_processor.py` transcodes the video to 1080p (libx264) to ensure consistency and reduce bandwidth.
+   - **Persistence**: The optimized video is uploaded to Cloudinary; metadata is saved to the Supabase `leads` table.
+   - **Notification**: Background tasks dispatch SMS alerts to the tradie and confirmation to the customer only after the video is ready.
 4. **The Portal**: A protected SPA-style interface (`web/templates/portal.html`) for lead management.
 
 ## Setup & Execution
@@ -48,7 +51,7 @@ The backend is architected for scalability and maintainability, split into speci
 ## Roadmap
 - [ ] Comprehensive test suite for modular API routes.
 - [ ] Transition to a modern framework (e.g., React/Vue) for the dashboard.
-- [ ] Enhanced client-side video compression before upload.
+- [x] Server-side video optimization and compression (1080p).
 - [ ] Automated error tracking integration (e.g., Sentry).
 
 ---
