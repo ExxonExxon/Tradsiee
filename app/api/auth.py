@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from app.core.config import (
     supabase_admin, twilio_client, TEFLON_SERVICE_SID, 
-    TWILIO_VERIFY_SERVICE_SID, logger, SUPABASE_URL, SUPABASE_SERVICE_KEY
+    TWILIO_VERIFY_SERVICE_SID, logger, SUPABASE_URL, SUPABASE_SERVICE_KEY,
+    FRONTEND_URL
 )
 from app.core.dependencies import (
     run_sync, format_phone, is_rate_limited, generate_unique_slug, 
@@ -268,16 +269,57 @@ async def update_profile(data: UpdateProfileSchema, tradie: AuthenticatedTradie 
 
 @router.patch("/update-account")
 async def update_account(data: UpdateAccountSchema, tradie: AuthenticatedTradie = Depends(get_current_user)):
+    # --- SECURITY VERIFICATION ---
+    # We MUST verify the current password before allowing email or password changes.
+    verify_password = data.current_password or data.old_password
+    if not verify_password:
+        raise HTTPException(status_code=400, detail="Current password required for security verification.")
+
+    # Re-authenticate to verify ownership
+    try:
+        # We use the user's current email from the session to verify the password
+        user_email = tradie.user.email
+        auth_res = await run_sync(tradie.supabase.auth.sign_in_with_password, {"email": user_email, "password": verify_password})
+        if not auth_res.user:
+            raise HTTPException(status_code=401, detail="Invalid current password.")
+    except Exception as e:
+        logger.warning(f"SECURITY_VERIFICATION_FAILED: {tradie.id} - {str(e)}")
+        raise HTTPException(status_code=401, detail="Invalid current password.")
+
+    # --- APPLY UPDATES ---
     auth_updates = {}
-    if data.email: auth_updates["email"] = data.email
-    if data.password: auth_updates["password"] = data.password
-    if not auth_updates: return {"status": "no-op"}
+    is_email_change = False
+    
+    if data.email and data.email.lower() != user_email.lower():
+        auth_updates["email"] = data.email.lower()
+        is_email_change = True
+    
+    if data.password:
+        auth_updates["password"] = data.password
+
+    if not auth_updates:
+        return {"status": "no-op", "message": "No changes requested or same as current."}
 
     try:
-        await run_sync(supabase_admin.auth.admin.update_user_by_id, tradie.id, auth_updates)
-        if data.email:
-            await run_sync(supabase_admin.table("tradies").update({"email": data.email}).eq("id", tradie.id).execute)
-        return {"status": "success"}
+        # Use the USER's client (NOT admin) to trigger the verification flow
+        # Redirect back to the specialized confirmation page
+        redirect_url = f"{FRONTEND_URL}/email-changed"
+        # When "Require current password" is ON in Supabase, we must pass it in the attributes
+        auth_updates["current_password"] = verify_password
+        
+        # Correct parameter name for Python client is email_redirect_to
+        update_res = await run_sync(tradie.supabase.auth.update_user, auth_updates, {"email_redirect_to": redirect_url})
+        
+        if is_email_change:
+            return {
+                "status": "pending", 
+                "message": f"Verification email sent to {data.email}. Your email will be updated once confirmed."
+            }
+        
+        return {"status": "success", "message": "Security credentials updated successfully."}
     except Exception as e:
         logger.error(f"ACCOUNT_UPDATE_FAILURE: {e}")
+        error_msg = str(e)
+        if "already registered" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="This email is already associated with another account.")
         raise HTTPException(status_code=400, detail="Failed to update account credentials.")

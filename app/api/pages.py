@@ -11,7 +11,7 @@ router = APIRouter(tags=["Pages"])
 
 @router.get("/config.js")
 async def get_config_js():
-    from app.core.config import SMS_AUTH_ENABLED
+    from app.core.config import SMS_AUTH_ENABLED, API_BASE_URL
     js_content = f"""
 /**
  * Tradsiee Global Configuration (Dynamically Generated)
@@ -20,8 +20,9 @@ const TRADSIEE_ENV = {{
     isLocal: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
     leadLimitsEnabled: {str(LEAD_LIMITS_ENABLED).lower()},
     smsAuthEnabled: {str(SMS_AUTH_ENABLED).lower()},
+    apiBase: "{API_BASE_URL}",
     get API_BASE() {{
-        return this.isLocal ? "http://localhost:8000" : "https://tradsiee.com";
+        return this.isLocal ? "http://localhost:8000" : this.apiBase;
     }}
 }};
 """
@@ -149,3 +150,7 @@ async def serve_preview():
 @router.get("/verified", response_class=HTMLResponse)
 async def serve_verified():
     return HTML_PAGES_CACHE.get("verified", "Page missing.")
+
+@router.get("/email-changed", response_class=HTMLResponse)
+async def serve_email_changed():
+    return HTML_PAGES_CACHE.get("email-changed", "Page missing.")

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Updated | Tradsiee</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #FAFAFA;
+            --card: #FFFFFF;
+            --blue: #000000;
+            --accent: #007AFF;
+            --text: #111111;
+            --muted: #666666;
+            --border: rgba(0,0,0,0.06);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px; -webkit-font-smoothing: antialiased;
+        }
+        
+        body::before {
+            content: ''; position: fixed; inset: 0;
+            background: radial-gradient(circle at 70% 30%, rgba(0,122,255,0.03) 0%, transparent 50%),
+                        radial-gradient(circle at 30% 70%, rgba(0,0,0,0.02) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .card {
+            background: var(--card); border-radius: 24px; 
+            border: 1px solid var(--border);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.02);
+            padding: 56px 40px; width: 100%; max-width: 420px;
+            text-align: center;
+            animation: cardFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes cardFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .icon-container {
+            width: 64px; height: 64px; background: #f8f8f8;
+            border-radius: 20px; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 48px; color: var(--accent);
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        
+        h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 24px; }
+        p { font-size: 15px; color: var(--muted); font-weight: 500; line-height: 1.8; margin-bottom: 64px; }
+        
+        .btn-primary {
+            width: 100%; padding: 16px; border-radius: 14px; border: none; 
+            background: var(--blue); color: #fff;
+            font-weight: 600; font-size: 14px; cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-primary:hover { background: #333; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon-container">
+            <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <h1>Email Updated</h1>
+        <p>Your address has been verified and updated. For security, please log back in with your new credentials.</p>
+        
+        <button class="btn-primary" onclick="window.location.href = '[[PATH_LOGIN]]'">Continue to Login</button>
+    </div>
+</body>
+</html>

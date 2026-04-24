@@ -21,7 +21,7 @@ class ForgotPasswordSchema(BaseModel):
     email: EmailStr
 
 class ResetPasswordSchema(BaseModel):
-    new_password: constr(min_length=8)
+    new_password: constr(min_length=6)
 
 class UpdateProfileSchema(BaseModel):
     business_name: Optional[str] = None
@@ -29,7 +29,9 @@ class UpdateProfileSchema(BaseModel):
 
 class UpdateAccountSchema(BaseModel):
     email: Optional[EmailStr] = None
-    password: Optional[constr(min_length=8)] = None
+    password: Optional[constr(min_length=6)] = None
+    current_password: Optional[str] = None
+    old_password: Optional[str] = None
 
 class LeadData(BaseModel):
     video_url: Optional[str] = None

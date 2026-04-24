@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
         pages_to_cache = {
             "login": "login.html", "signup": "signup.html", "portal": "portal.html",
             "update-password": "update-password.html", "preview": "widget-preview.html",
-            "admin": "admin.html", "verified": "verified.html"
+            "admin": "admin.html", "verified": "verified.html", "email-changed": "email-changed.html"
         }
         for key, filename in pages_to_cache.items():
             config.HTML_PAGES_CACHE[key] = process_html(filename)

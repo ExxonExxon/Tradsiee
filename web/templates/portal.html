@@ -1813,9 +1813,15 @@
             });
             const data = await res.json();
             if (res.ok) {
-                showToast('Security updated', 'success');
-                if (updates.email) state.email = updates.email;
-                updateUI();
+                // Show the specific success message from the backend (e.g., "Verification email sent")
+                showToast(data.message || 'Security updated', 'success');
+                
+                // Only update local email if the backend says it's already successful (not pending)
+                if (updates.email && data.status !== 'pending') {
+                    state.email = updates.email;
+                    updateUI();
+                }
+                
                 closeModal(type === 'email' ? 'email-modal' : 'password-modal');
                 // Clear sensitive fields
                 if (document.getElementById('modal-email-password')) document.getElementById('modal-email-password').value = '';

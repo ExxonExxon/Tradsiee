@@ -108,11 +108,25 @@ def send_tradie_lead_alert(lead_id: str):
 
 @router.get("/get-leads/{slug}")
 async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: AuthenticatedTradie = Depends(get_current_user)):
-    biz_res = await run_sync(supabase_admin.table("tradies").select("id, business_name, credits").eq("slug", slug).single().execute)
+    biz_res = await run_sync(supabase_admin.table("tradies").select("id, business_name, credits, email").eq("slug", slug).single().execute)
     if not biz_res.data: raise HTTPException(status_code=404, detail="Not found.")
     if biz_res.data["id"] != tradie.id: raise HTTPException(status_code=403, detail="Unauthorized.")
+
+    # --- EMAIL SYNC LOGIC ---
+    # If the Auth email is different from the table email, it means a verified change happened.
+    auth_email = tradie.user.email
+    table_email = biz_res.data.get("email")
+    if auth_email and auth_email != table_email:
+        logger.info(f"SYNC: Updating table email to verified auth email: {auth_email}")
+        await run_sync(supabase_admin.table("tradies").update({"email": auth_email}).eq("id", tradie.id).execute)
+
     leads_res = await run_sync(tradie.supabase.table("leads").select("*").order("created_at", desc=True).range(offset, offset + limit - 1).execute)
-    return {"business_name": biz_res.data["business_name"], "credits": biz_res.data["credits"], "leads": leads_res.data}
+    return {
+        "business_name": biz_res.data["business_name"], 
+        "credits": biz_res.data["credits"], 
+        "email": auth_email,
+        "leads": leads_res.data
+    }
 
 @router.patch("/update-lead-status/{lead_id}")
 async def update_lead_status(lead_id: str, data: dict, tradie: AuthenticatedTradie = Depends(get_current_user)):
