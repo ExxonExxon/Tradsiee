@@ -15,7 +15,14 @@ logger = logging.getLogger("tradsiee-engine")
 # Environment Variables
 API_BASE_URL = os.getenv("API_BASE_URL", "https://tradsiee.com")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://tradsiee.com")
-LEAD_LIMITS_ENABLED = os.getenv("LEAD_LIMITS_ENABLED", "false").lower() == "true"
+
+def get_env_bool(key: str, default: str) -> bool:
+    return os.getenv(key, default).lower() in ("true", "1", "yes", "on")
+
+LEAD_LIMITS_ENABLED = get_env_bool("LEAD_LIMITS_ENABLED", "false")
+SMS_AUTH_ENABLED = get_env_bool("SMS_AUTH_ENABLED", "true")
+
+logger.info(f"CONFIG_LOADED: limits={LEAD_LIMITS_ENABLED}, sms_auth={SMS_AUTH_ENABLED}")
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")

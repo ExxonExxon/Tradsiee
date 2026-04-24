@@ -11,6 +11,7 @@ router = APIRouter(tags=["Pages"])
 
 @router.get("/config.js")
 async def get_config_js():
+    from app.core.config import SMS_AUTH_ENABLED
     js_content = f"""
 /**
  * Tradsiee Global Configuration (Dynamically Generated)
@@ -18,6 +19,7 @@ async def get_config_js():
 const TRADSIEE_ENV = {{
     isLocal: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
     leadLimitsEnabled: {str(LEAD_LIMITS_ENABLED).lower()},
+    smsAuthEnabled: {str(SMS_AUTH_ENABLED).lower()},
     get API_BASE() {{
         return this.isLocal ? "http://localhost:8000" : "https://tradsiee.com";
     }}
@@ -28,6 +30,13 @@ const TRADSIEE_ENV = {{
         media_type="application/javascript",
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
     )
+
+@router.get("/coi-serviceworker.js")
+async def get_coi_js():
+    path = os.path.join("web", "static", "coi-serviceworker.js")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="application/javascript")
+    return Response(content="// coi-serviceworker.js not found", media_type="application/javascript")
 
 @router.get("/widget-bundle.js")
 async def get_widget_bundle():

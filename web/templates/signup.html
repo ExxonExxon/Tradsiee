@@ -530,6 +530,12 @@ This file handles the multi-step user registration and phone verification flow f
                     sessionStorage.setItem('reg_email', emailEl.value.trim());
                     sessionStorage.setItem('reg_password', passEl.value);
                     
+                    if (TRADSIEE_ENV.smsAuthEnabled === false) {
+                        // Skip step 2 entirely
+                        await verifyCode("000000");
+                        return;
+                    }
+
                     const verifyRes = await fetch(`${API_BASE}/send-verification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -554,19 +560,20 @@ This file handles the multi-step user registration and phone verification flow f
         }
 
         /* [API_ORCHESTRATION: MFA_VERIFICATION] */
-        async function verifyCode() {
+        async function verifyCode(forcedCode = null) {
             const codeEl = document.getElementById('verify-code');
             const phone = localStorage.getItem('temp_phone');
             const btn = document.getElementById('verify-btn');
-            
-            codeEl.classList.remove('error');
+
+            const code = forcedCode || codeEl.value;
+            if (!code || code.length < 6) return;
+
             btn.disabled = true;
-            
             try {
                 const res = await fetch(`${API_BASE}/verify-code`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, code: codeEl.value })
+                    body: JSON.stringify({ phone, code })
                 });
                 
                 if (res.ok) {

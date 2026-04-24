@@ -14,6 +14,10 @@ router = APIRouter(tags=["Admin"])
 
 @router.post("/send-delete-code")
 async def send_delete_code(tradie: AuthenticatedTradie = Depends(get_current_user), request: Request = None):
+    from app.core.config import SMS_AUTH_ENABLED
+    if not SMS_AUTH_ENABLED:
+        logger.info("SMS_AUTH_BYPASS: send_delete_code skipped.")
+        return {"status": "success", "message": "SMS_BYPASS"}
     # [DESTRUCTIVE_ACTION_MFA: TWILIO_VERIFY]
     try:
         from app.core.dependencies import is_rate_limited
@@ -45,27 +49,35 @@ async def send_delete_code(tradie: AuthenticatedTradie = Depends(get_current_use
 
 @router.delete("/delete-account/{slug}")
 async def delete_account(slug: str, code: str, tradie: AuthenticatedTradie = Depends(get_current_user)):
-    # [ACCOUNT_TERMINATION_LOGIC: TWILIO_VERIFY]
+    from app.core.config import SMS_AUTH_ENABLED
+    if not SMS_AUTH_ENABLED:
+        logger.info("SMS_AUTH_BYPASS: delete_account accepted.")
+    else:
+        # [ACCOUNT_TERMINATION_LOGIC: TWILIO_VERIFY]
+        try:
+            res = await run_sync(supabase_admin.table("tradies").select("phone_number").eq("id", tradie.id).single().execute)
+            phone = format_phone(res.data["phone_number"])
+
+            # Check code via Twilio Verify
+            check = await run_sync(twilio_client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID).verification_checks.create,
+                to=phone,
+                code=code
+            )
+            
+            if check.status != "approved":
+                raise HTTPException(status_code=400, detail="Invalid verification code.")
+        except HTTPException as he: raise he
+        except Exception as e:
+            logger.error(f"VERIFY_CHECK_FAILURE: {e}")
+            raise HTTPException(status_code=400, detail="Verification check failed.")
+
+    # [SOFT_DELETE]
     try:
-        res = await run_sync(supabase_admin.table("tradies").select("phone_number").eq("id", tradie.id).single().execute)
-        phone = format_phone(res.data["phone_number"])
-
-        # Check code via Twilio Verify
-        check = await run_sync(twilio_client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID).verification_checks.create,
-            to=phone,
-            code=code
-        )
-        
-        if check.status != "approved":
-            raise HTTPException(status_code=400, detail="Invalid verification code.")
-
-        # [SOFT_DELETE]
         now = datetime.utcnow().isoformat()
         await run_sync(supabase_admin.table("tradies").update({"deleted_at": now}).eq("id", tradie.id).execute)
         
         logger.info(f"SOFT_DELETE_SUCCESS: tradie_id={tradie.id}")
         return {"status": "success"}
-    except HTTPException as he: raise he
     except Exception as e:
         logger.error(f"SOFT_DELETION_FAILURE: {e}")
         raise HTTPException(status_code=500, detail="Account deletion failed.")
