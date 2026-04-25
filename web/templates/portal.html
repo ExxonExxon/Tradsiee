@@ -1232,6 +1232,7 @@ const state = {
             state.leads = newLeads;
             state.credits = data.credits || 0;
             state.bizName = data.business_name || '';
+            state.slug = data.slug || state.slug;
             state.email = data.email || '';
             state.phone = data.phone_number || '';
             state.limitsEnabled = data.limits_enabled !== false;
@@ -1326,29 +1327,14 @@ const state = {
         
         if (document.getElementById('delete-confirm-slug')) document.getElementById('delete-confirm-slug').textContent = safeText(state.slug);
         
-        // Installation Code with Offline Fallback
-        const escapedPhone = escapeHTML(formatPhoneDisplay(state.phone));
-        const cleanPhone = state.phone.replace(/\s+/g, '');
-        const code = `<div id="tradsiee-widget-root"></div>
-<script>
-    (function() {
-        var root = document.getElementById("tradsiee-widget-root");
-        var timeout = setTimeout(function() {
-            if (root && !root.querySelector("iframe")) {
-                root.innerHTML = '<div style="padding:20px; border:1.5px dashed #ccc; border-radius:16px; text-align:center; font-family:sans-serif;">' +
-                    '<h3 style="margin:0 0 8px; font-size:16px;">Oh no!</h3>' +
-                    '<p style="margin:0; font-size:14px; color:#666;">Looks like Tradsiee is having some issues. Please <a href="tel:${cleanPhone}" style="color:#007AFF; font-weight:700;">call us instead</a> at <strong>${escapedPhone}</strong></p>' +
-                    '</div>';
-            }
-        }, 5000);
-        var s = document.createElement("script");
-        s.src = "${API}/loader.js?slug=${encodeURIComponent(state.slug)}";
-        s.async = true;
-        s.onload = function() { clearTimeout(timeout); };
-        document.head.appendChild(s);
-    })();
-<\/script>`;
-        if (document.getElementById('embed-code')) document.getElementById('embed-code').textContent = code;
+        // Installation Code (Clean Version)
+        if (state.slug) {
+            const code = `<div id="tradsiee-widget-root"></div>
+<script src="${API}/loader.js?slug=${encodeURIComponent(state.slug)}" async><\/script>`;
+            if (document.getElementById('embed-code')) document.getElementById('embed-code').textContent = code;
+        } else if (document.getElementById('embed-code')) {
+            document.getElementById('embed-code').textContent = "Loading your custom installation code...";
+        }
     }
 
     function renderData() {

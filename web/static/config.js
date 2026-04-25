@@ -8,6 +8,6 @@ const TRADSIEE_ENV = {
     
     // The base URL for API calls
     get API_BASE() {
-        return this.isLocal ? "http://localhost:8000" : "https://tradsiee.com";
+        return this.isLocal ? "http://127.0.0.1:8000" : "https://tradsiee.com";
     }
 };

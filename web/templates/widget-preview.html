@@ -78,7 +78,25 @@ It allows tradies to experience the customer journey directly from their portal.
         const API_BASE = TRADSIEE_ENV.API_BASE;
 
         if (slug) {
-            // [WIDGET_INJECTION] Dynamically load the loader script with the tenant slug.
+            let h = 0;
+            window.addEventListener("message", function(e) {
+                if (e.data.type === "tradsiee-resize") h = 1;
+            });
+
+            // Fast fetch for preview fallback data
+            let p = "[[BUSINESS_PHONE]]", cp = "";
+            fetch(`${API_BASE}/widget/${slug}`).then(r => r.text()).then(html => {
+                let m = html.match(/const TS_PHONE\s+=\s+"([^"]+)"/);
+                if (m) { p = m[1]; cp = p.replace(/\s+/g, ''); }
+            });
+
+            let r = document.getElementById('tradsiee-widget');
+            setTimeout(function() {
+                if (!h) {
+                    r.innerHTML = `<div style="padding:28px;background:#fff;border-radius:32px;border:1px solid rgba(0,0,0,0.05);box-shadow:0 4px 24px rgba(0,0,0,0.06);text-align:center;font-family:'Plus Jakarta Sans',sans-serif;max-width:420px;margin:0 auto;"><div style="width:64px;height:64px;background:#FFF5F5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;"><svg width="30" height="30" fill="none" stroke="#FF3B30" viewBox="0 0 24 24"><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/></svg></div><h3 style="margin:0 0 8px;font-size:18px;font-weight:800;color:#1C1C1E;">Oh no!</h3><p style="margin:0;font-size:13px;color:#8E8E93;line-height:1.5;">Looks like Tradsiee is having some issues. Please <a href="tel:${cp}" style="color:#007AFF;text-decoration:none;font-weight:700;">call us instead</a> at<br><strong>${p}</strong></p></div>`;
+                }
+            }, 3000);
+
             const script = document.createElement('script');
             script.src = `${API_BASE}/loader.js?slug=${slug}`;
             script.async = true;

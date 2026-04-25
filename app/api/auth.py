@@ -170,27 +170,25 @@ async def send_verification(data: dict, request: Request):
 async def verify_code(data: dict, request: Request):
     from app.core.config import SMS_AUTH_ENABLED
     phone, code = data.get("phone"), data.get("code")
+    formatted_phone = format_phone(phone)
     
     if not SMS_AUTH_ENABLED or code == "000000":
         logger.info(f"SMS_AUTH_BYPASS: Tradie verification accepted (code={code}).")
-        return {"status": "success"}
+    else:
+        logger.info(f"VERIFY_TRADIE: phone={phone}, code={code}")
+        if not twilio_client:
+            raise HTTPException(status_code=500, detail="SMS service unavailable.")
 
-    logger.info(f"VERIFY_TRADIE: phone={phone}, code={code}")
-    formatted_phone = format_phone(phone)
-    
-    if not twilio_client:
-        raise HTTPException(status_code=500, detail="SMS service unavailable.")
-
-    try:
-        check = await run_sync(twilio_client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID).verification_checks.create,
-            to=formatted_phone,
-            code=code
-        )
-        if check.status != "approved":
-            raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
-    except Exception as e:
-        logger.error(f"VERIFY_CHECK_FAILURE: {e}")
-        raise HTTPException(status_code=400, detail="Verification check failed.")
+        try:
+            check = await run_sync(twilio_client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID).verification_checks.create,
+                to=formatted_phone,
+                code=code
+            )
+            if check.status != "approved":
+                raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
+        except Exception as e:
+            logger.error(f"VERIFY_CHECK_FAILURE: {e}")
+            raise HTTPException(status_code=400, detail="Verification check failed.")
     
     staged_res = await run_sync(supabase_admin.table("staged_registrations").select("*").eq("phone_number", formatted_phone).single().execute)
     if not staged_res.data:
@@ -202,23 +200,67 @@ async def verify_code(data: dict, request: Request):
     redirect_url = f"{base_url}/verified"
     
     try:
+        # 1. Final identity wipe to be absolutely sure
         await run_sync(supabase_admin.table("tradies").delete().eq("phone_number", formatted_phone).execute)
+        
+        # 2. Force Purge any existing Auth user by email before creating new one
+        # This is the "Ghost Identity" problem - where Auth has the user but our table doesn't
+        try:
+            # We list all users and find any matching email to delete them
+            # This is more reliable than update_user which sometimes fails to refresh the password correctly
+            users_res = await run_sync(supabase_admin.auth.admin.list_users)
+            
+            # In some SDK versions, list_users() returns a list, in others it has a .users attribute
+            user_list = users_res if isinstance(users_res, list) else getattr(users_res, 'users', [])
+            
+            for u in user_list:
+                if u.email.lower() == profile_data["email"].lower():
+                    logger.info(f"AUTH_PURGE_TRIGGERED: wiping ghost user_id={u.id} for email={u.email}")
+                    await force_delete_auth_user(u.id)
+                    # Small sleep to allow Supabase's internal database to reflect the deletion
+                    import asyncio
+                    await asyncio.sleep(1.5) 
+                    break
+        except Exception as e:
+            logger.warning(f"AUTH_PURGE_SKIPPED: {e}")
 
-        auth_res = await run_sync(supabase_admin.auth.sign_up, {
-            "email": profile_data["email"], 
+        # 3. Create fresh identity
+        logger.info(f"AUTH_IDENTITY_CREATE: provisioning fresh user for {profile_data['email']}")
+        auth_res = await run_sync(supabase_admin.auth.admin.create_user, {
+            "email": profile_data["email"],
             "password": password,
-            "options": { "redirect_to": redirect_url, "email_redirect_to": redirect_url }
+            "email_confirm": False,
+            "user_metadata": { "full_name": profile_data.get("business_name", "") }
         })
-        if not auth_res.user:
+
+        if not auth_res:
             raise HTTPException(status_code=400, detail="Auth creation failed.")
         
-        profile_data["id"] = auth_res.user.id
+        # Explicitly trigger the confirmation email since Admin API create_user with email_confirm=False 
+        # doesn't always send the "Welcome" email depending on Supabase version/config.
+        try:
+            base_url = get_base_url(request).rstrip('/')
+            await run_sync(supabase_admin.auth.resend, {
+                "type": "signup", 
+                "email": profile_data["email"],
+                "options": {"redirect_to": f"{base_url}/verified"}
+            })
+            logger.info(f"AUTH_EMAIL_TRIGGERED: Sent confirmation to {profile_data['email']} (redirect to /verified)")
+        except Exception as e:
+            logger.warning(f"AUTH_EMAIL_RETRY_FAILED: {e}")
+        
+        user_id = auth_res.id if hasattr(auth_res, 'id') else auth_res.user.id
+        
+        profile_data["id"] = user_id
         await run_sync(supabase_admin.table("tradies").insert(profile_data).execute)
         await run_sync(supabase_admin.table("staged_registrations").delete().eq("phone_number", formatted_phone).execute)
         
         return {"status": "success"}
     except Exception as e:
         logger.error(f"AUTH_PROVISIONING_FAILURE: {e}")
+        # If user already exists, we might need to handle it or report it
+        if "already registered" in str(e).lower():
+             raise HTTPException(status_code=400, detail="This email is already registered.")
         raise HTTPException(status_code=500, detail="Failed to finalize account.")
 
 @router.post("/forgot-password")

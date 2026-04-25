@@ -60,15 +60,29 @@ async def get_widget_bundle():
 
 @router.get("/loader.js")
 async def loader_js(request: Request, slug: str):
-    # Detect origin dynamically to handle localhost, custom domains, or proxies
+    from app.core.dependencies import run_sync
+    from app.core.config import supabase_admin
+
+    # Detect origin dynamically
     host = request.headers.get("x-forwarded-host") or request.headers.get("host")
     scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
     origin = f"{scheme}://{host}"
     
+    # Fetch business phone for fallback
+    try:
+        res = await run_sync(supabase_admin.table("tradies").select("phone_number").eq("slug", slug).single().execute)
+        biz_phone = res.data.get("phone_number") if res.data else ""
+    except Exception:
+        biz_phone = ""
+    
+    clean_phone = biz_phone.replace(" ", "")
+
     js = f"""
 (function() {{
     window.TRADSIEE_SLUG = "{slug}";
     var origin = "{origin}";
+    var bizPhone = "{biz_phone}";
+    var cleanPhone = "{clean_phone}";
     
     ['https://api.cloudinary.com', 'https://fonts.googleapis.com'].forEach(url => {{
         var link = document.createElement('link');
@@ -88,14 +102,31 @@ async def loader_js(request: Request, slug: str):
     iframe.scrolling = 'no';
     iframe.loading = 'lazy';
 
+    var hasLoaded = false;
+    var timeout = setTimeout(function() {{
+        if (!hasLoaded) {{
+            var fallback = document.createElement('div');
+            fallback.style.cssText = 'padding:28px; background:#fff; border-radius:32px; border:1px solid rgba(0,0,0,0.05); box-shadow:0 4px 24px rgba(0,0,0,0.06); text-align:center; font-family:"Plus Jakarta Sans", sans-serif; max-width:420px; margin:0 auto;';
+            fallback.innerHTML = '<div style="width:64px;height:64px;background:#FFF5F5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;"><svg width="30" height="30" fill="none" stroke="#FF3B30" viewBox="0 0 24 24"><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/></svg></div>' +
+                               '<h3 style="font-size:18px;font-weight:800;margin-bottom:8px;color:#1C1C1E;">Oh no!</h3>' +
+                               '<p style="font-size:13px;color:#8E8E93;line-height:1.5;margin:0;">Looks like Tradsiee is having some issues. Please <a href="tel:'+cleanPhone+'" style="color:#007AFF;text-decoration:none;font-weight:700;">call us instead</a> at <strong>'+bizPhone+'</strong></p>';
+            if (iframe.parentNode) {{
+                iframe.parentNode.replaceChild(fallback, iframe);
+            }}
+        }}
+    }}, 8000);
+
     window.addEventListener('message', function(e) {{
         if (e.data && e.data.type === 'tradsiee-resize') {{
+            hasLoaded = true;
+            clearTimeout(timeout);
             // Use 40px buffer for card shadows and bottom margins
             iframe.style.height = (e.data.height + 40) + 'px';
         }}
     }});
 
-    var container = document.getElementById('tradsiee-widget-root');    if (container) {{
+    var container = document.getElementById('tradsiee-widget-root');
+    if (container) {{
         container.appendChild(iframe);
     }} else {{
         document.currentScript ? document.currentScript.parentNode.insertBefore(iframe, document.currentScript) : document.body.appendChild(iframe);
@@ -117,12 +148,14 @@ async def get_widget_ui(slug: str):
     content = config.WIDGET_TEMPLATE_CACHE or "Template missing."
     c_name = os.getenv("CLOUDINARY_NAME", "MISSING")
     
-    # Fetch business name based on slug
+    # Fetch business name and phone based on slug
     try:
-        res = await run_sync(supabase_admin.table("tradies").select("business_name").eq("slug", slug).single().execute)
+        res = await run_sync(supabase_admin.table("tradies").select("business_name, phone_number").eq("slug", slug).single().execute)
         biz_name = res.data.get("business_name") if res.data else "a Professional"
+        biz_phone = res.data.get("phone_number") if res.data else ""
     except Exception:
         biz_name = "a Professional"
+        biz_phone = ""
         
     biz_initial = biz_name[0].upper() if biz_name else "T"
 
@@ -131,9 +164,16 @@ async def get_widget_ui(slug: str):
     # Inject variables
     content = content.replace('[[SLUG_PLACEHOLDER]]', slug)
     content = content.replace('[[BUSINESS_NAME]]', biz_name)
+    content = content.replace('[[BUSINESS_PHONE]]', biz_phone)
     content = content.replace('[[BUSINESS_INITIAL]]', biz_initial)
     
-    return HTMLResponse(content=content)
+    return HTMLResponse(
+        content=content,
+        headers={
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "X-Frame-Options": "ALLOWALL"
+        }
+    )
 
 @router.get("/", response_class=HTMLResponse)
 async def serve_home():

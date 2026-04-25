@@ -156,6 +156,16 @@ This file implements the core customer-facing interface for Tradsiee lead genera
                 <p style="font-size:13px;color:#8E8E93;">[[BUSINESS_NAME]] will get back to you shortly.</p>
             </div>
         </div>
+
+        <div class="ts-step" id="step-error">
+            <div style="text-align:center;padding:12px 0;">
+                <div style="width:64px;height:64px;background:#FFF5F5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                    <svg width="30" height="30" fill="none" stroke="#FF3B30" viewBox="0 0 24 24"><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/></svg>
+                </div>
+                <h3 style="font-size:18px;font-weight:800;margin-bottom:8px;">Oh no!</h3>
+                <p style="font-size:13px;color:#8E8E93;line-height:1.5;">Looks like Tradsiee is having some issues. Please <a id="ts-error-link" href="tel:[[BUSINESS_PHONE]]" style="color:#007AFF;text-decoration:none;font-weight:700;">call us instead</a> at <strong id="ts-error-phone">[[BUSINESS_PHONE]]</strong></p>
+            </div>
+        </div>
     </div>
     <div style="text-align:center;margin-top:14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#C7C7CC;">Powered by Tradsiee</div>
 </div>
@@ -172,6 +182,7 @@ This file implements the core customer-facing interface for Tradsiee lead genera
 
     // Configuration resolution from environment injection.
     const TS_SLUG          = (new URLSearchParams(window.location.search)).get('slug') || window.TRADSIEE_SLUG || "[[SLUG_PLACEHOLDER]]";
+    const TS_PHONE         = "[[BUSINESS_PHONE]]";
 
     let TS_CLOUD_NAME    = "[[CLOUD_NAME]]";
     let TS_UPLOAD_PRESET = "[[UPLOAD_PRESET]]";
@@ -180,6 +191,14 @@ This file implements the core customer-facing interface for Tradsiee lead genera
     let tsActiveXhr     = null;
     let tsUploadPromise = null;
     let tsUploadResult  = null;
+
+    function tsShowError() {
+        console.error("TS_DEBUG: Connection or API Error. Showing fallback UI.");
+        document.querySelectorAll('.ts-step').forEach(s => s.classList.remove('active'));
+        document.getElementById('step-error').classList.add('active');
+        document.querySelectorAll('.ts-progress-dot').forEach(d => d.style.display = 'none');
+        tsSendHeight();
+    }
 
     /* [FORM_VALIDATION] */
     function tsValidateStep1() {
@@ -211,8 +230,14 @@ This file implements the core customer-facing interface for Tradsiee lead genera
                 console.log("TS_DEBUG: SMS Code Sent successfully to", phone);
                 document.getElementById('ts-verify-phone').textContent = phone;
                 tsGoStep(2);
-            } else { console.error("TS_DEBUG: SMS API Error:", res.status); alert("Failed to send verification code."); }
-        } catch(e) { console.error("TS_DEBUG: SMS Network Error:", e); alert("Network error."); }
+            } else { 
+                console.error("TS_DEBUG: SMS API Error:", res.status); 
+                tsShowError();
+            }
+        } catch(e) { 
+            console.error("TS_DEBUG: SMS Network Error:", e); 
+            tsShowError();
+        }
         btn.textContent = 'Continue'; btn.disabled = false;
     }
 
@@ -230,8 +255,14 @@ This file implements the core customer-facing interface for Tradsiee lead genera
                 body: JSON.stringify({ phone: phone, code: code })
             });
             if (res.ok) { console.log("TS_DEBUG: Code verified. Moving to upload."); tsGoStep(3); }
-            else { console.warn("TS_DEBUG: Invalid verification code."); alert("Invalid verification code. Please try again."); }
-        } catch(e) { console.error("TS_DEBUG: Verify API Network Error:", e); alert("Network error."); }
+            else { 
+                console.warn("TS_DEBUG: Invalid verification code."); 
+                alert("Invalid verification code. Please try again."); 
+            }
+        } catch(e) { 
+            console.error("TS_DEBUG: Verify API Network Error:", e); 
+            tsShowError();
+        }
         label.style.display = 'block'; spinner.style.display = 'none'; btn.disabled = false;
     }
 
@@ -367,11 +398,15 @@ This file implements the core customer-facing interface for Tradsiee lead genera
                     resolve(res);
                 } else {
                     console.error("TS_DEBUG: Server Upload Error:", xhr.responseText);
+                    tsShowError();
                     reject(new Error("Server upload failed"));
                 }
             };
             
-            xhr.onerror = () => reject(new Error("Network error"));
+            xhr.onerror = () => {
+                tsShowError();
+                reject(new Error("Network error"));
+            };
             xhr.send(fd);
         });
     }
@@ -389,7 +424,7 @@ This file implements the core customer-facing interface for Tradsiee lead genera
         try {
             // 1. Upload raw file to our server first
             const uploadRes = await tsStartUpload();
-            if (!uploadRes || !uploadRes.temp_id) throw new Error("Upload failed");
+            if (!uploadRes || !uploadRes.temp_id) return; // Error already handled in tsStartUpload
 
             // 2. Send lead data with the temporary file ID
             console.log("TS_DEBUG: Finalizing lead submission...");
@@ -409,11 +444,11 @@ This file implements the core customer-facing interface for Tradsiee lead genera
                 console.log("TS_DEBUG: Success! Lead queued for local compression.");
                 tsGoStep(4);
             } else {
-                throw new Error("API failed");
+                tsShowError();
             }
         } catch (e) { 
             console.error("TS_DEBUG: Submission Error:", e);
-            alert('Submission failed. Please try again.'); 
+            tsShowError();
         } finally {
             btn.disabled = false;
             btnLabel.style.display = 'block';

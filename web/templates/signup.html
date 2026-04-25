@@ -578,16 +578,8 @@ This file handles the multi-step user registration and phone verification flow f
                 
                 if (res.ok) {
                     goToStep(3);
-                    const email = sessionStorage.getItem('reg_email');
-                    const password = sessionStorage.getItem('reg_password');
-                    const lRes = await fetch(`${API_BASE}/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-                    const lData = await lRes.json();
-                    localStorage.setItem('tradsiee_slug', lData.slug);
-                    localStorage.setItem('tradsiee_token', lData.access_token);
+                    // We no longer attempt auto-login here because the user 
+                    // must click the confirmation link in their email first.
                 } else { 
                     const d = await res.json();
                     toast(d.detail || 'Invalid verification code'); 

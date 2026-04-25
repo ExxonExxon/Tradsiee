@@ -123,8 +123,10 @@ async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: Authent
     leads_res = await run_sync(tradie.supabase.table("leads").select("*").order("created_at", desc=True).range(offset, offset + limit - 1).execute)
     return {
         "business_name": biz_res.data["business_name"], 
+        "slug": slug,
         "credits": biz_res.data["credits"], 
         "email": auth_email,
+        "limits_enabled": LEAD_LIMITS_ENABLED,
         "leads": leads_res.data
     }
 
