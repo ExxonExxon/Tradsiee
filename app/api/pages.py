@@ -40,13 +40,6 @@ const TRADSIEE_ENV = {{
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
     )
 
-@router.get("/coi-serviceworker.js")
-async def get_coi_js():
-    path = os.path.join("web", "static", "coi-serviceworker.js")
-    if os.path.exists(path):
-        return FileResponse(path, media_type="application/javascript")
-    return Response(content="// coi-serviceworker.js not found", media_type="application/javascript")
-
 @router.get("/widget-bundle.js")
 async def get_widget_bundle():
     path = os.path.join("web", "static", "widget-bundle.js")

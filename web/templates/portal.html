@@ -22,6 +22,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         /* [DESIGN_SYSTEM_TOKEN_DEFINITION] 
@@ -1118,27 +1119,61 @@
     */
 
     const API = TRADSIEE_ENV.API_BASE;
-const state = {
-    slug: localStorage.getItem('tradsiee_slug'),
-    token: localStorage.getItem('tradsiee_token'),
-    leads: [],
-    credits: 0,
-    bizName: '',
-    email: '',
-    phone: '',
-    currentView: 'pipeline',
-    sortBy: 'newest',
-    theme: localStorage.getItem('tradsiee_theme') || 'light',
-    isVerified: true,
-    limitsEnabled: true,
-    bulkMode: false,
-    selectedLeads: [],
-    searchQuery: '',
-    isDragging: false
-};
+    
+    // [SUPABASE_INITIALIZATION]
+    // We use the Supabase client to manage long-lived sessions and auto-refreshing tokens.
+    const supabaseUrl = "[[SUPABASE_URL]]";
+    const supabaseKey = "[[SUPABASE_ANON_KEY]]";
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    // [AUTH_REDIRECT_LOGIC] Ensures session presence before initialization.
-    if (!state.token || !state.slug) window.location.href = '[[PATH_LOGIN]]';
+    const state = {
+        slug: localStorage.getItem('tradsiee_slug'),
+        token: null, // Managed by Supabase session
+        leads: [],
+        credits: 0,
+        bizName: '',
+        email: '',
+        phone: '',
+        currentView: 'pipeline',
+        sortBy: 'newest',
+        theme: localStorage.getItem('tradsiee_theme') || 'light',
+        isVerified: true,
+        limitsEnabled: true,
+        bulkMode: false,
+        selectedLeads: [],
+        searchQuery: '',
+        isDragging: false
+    };
+
+    // [SESSION_RECOVERY_ENGINE]
+    // Automatically restores the session from LocalStorage on load, just like Facebook/YouTube.
+    async function initSession() {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        
+        if (error || !session) {
+            console.log("No active session, redirecting...");
+            window.location.href = '[[PATH_LOGIN]]';
+            return;
+        }
+
+        state.token = session.access_token;
+        setupAuthListener();
+        refresh(); // Initial data load
+    }
+
+    function setupAuthListener() {
+        // Listen for auth changes (token refresh, logout in other tabs)
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                window.location.href = '[[PATH_LOGIN]]';
+            } else if (session) {
+                state.token = session.access_token;
+                console.log("Auth session updated:", event);
+            }
+        });
+    }
+
+    initSession();
 
     let sortableNew, sortableWorking;
     let autoRefreshTimer = null;
@@ -2197,7 +2232,11 @@ const state = {
         window.scrollTo(0,0);
     }
 
-    function logout() { localStorage.clear(); window.location.href = '[[PATH_LOGIN]]'; }
+    async function logout() { 
+        await supabaseClient.auth.signOut();
+        localStorage.clear(); 
+        window.location.href = '[[PATH_LOGIN]]'; 
+    }
 
     window.onload = () => {
         // [SESSION_HYDRATION] 

@@ -21,14 +21,15 @@ def get_env_bool(key: str, default: str) -> bool:
 
 LEAD_LIMITS_ENABLED = get_env_bool("LEAD_LIMITS_ENABLED", "false")
 SMS_AUTH_ENABLED = get_env_bool("SMS_AUTH_ENABLED", "true")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "tomas.gorjux@gmail.com")
 
-logger.info(f"CONFIG_LOADED: limits={LEAD_LIMITS_ENABLED}, sms_auth={SMS_AUTH_ENABLED}")
+logger.info(f"CONFIG_LOADED: limits={LEAD_LIMITS_ENABLED}, sms_auth={SMS_AUTH_ENABLED}, admin={ADMIN_EMAIL}")
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TEFLON_SERVICE_SID = os.getenv("TWILIO_MESSAGING_SERVICE_SID")
-TWILIO_VERIFY_SERVICE_SID = "VAedfe579dd3c049e952fd5db803f3fe56"
+TWILIO_VERIFY_SERVICE_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID", "VAedfe579dd3c049e952fd5db803f3fe56")
 twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) if TWILIO_ACCOUNT_SID else None
 
 # Supabase Configuration

@@ -90,6 +90,30 @@ def get_base_url(request: Request) -> str:
     netloc = request.url.netloc
     return f"{scheme}://{netloc}"
 
+async def log_activity(request: Request, event: str, tradie_id: Optional[str] = None, metadata: Optional[Dict] = None):
+    """
+    Asynchronous audit logging engine.
+    Captures IP, User Agent, and event context.
+    """
+    try:
+        # Detect Real IP (handle proxies)
+        ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
+        ua = request.headers.get("user-agent", "unknown")
+        
+        log_data = {
+            "event_type": event,
+            "ip_address": ip,
+            "user_agent": ua,
+            "tradie_id": tradie_id,
+            "metadata": metadata or {}
+        }
+        
+        # Fire and forget (don't block the main request flow)
+        asyncio.create_task(run_sync(supabase_admin.table("activity_logs").insert(log_data).execute))
+        logger.info(f"AUDIT_LOG: event={event} | ip={ip} | tradie={tradie_id}")
+    except Exception as e:
+        logger.error(f"LOGGING_FAILURE: {e}")
+
 # --- Authentication Dependency ---
 
 class AuthenticatedTradie:
@@ -107,14 +131,18 @@ async def get_current_user(auth: HTTPAuthorizationCredentials = Depends(security
         if not user:
             raise HTTPException(status_code=401, detail="Invalid session.")
         
-        if not getattr(user, 'email_confirmed_at', None):
-            raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
-
         # [SOFT_DELETE_VERIFICATION]
         # Ensure the user has not marked their profile for deletion.
-        profile_res = await run_sync(supabase_admin.table("tradies").select("deleted_at").eq("id", user.id).single().execute)
-        if profile_res.data and profile_res.data.get("deleted_at"):
+        profile_res = await run_sync(supabase_admin.table("tradies").select("deleted_at, email_confirmed_at").eq("id", user.id).single().execute)
+        
+        if not profile_res.data:
+            raise HTTPException(status_code=404, detail="Profile missing.")
+
+        if profile_res.data.get("deleted_at"):
             raise HTTPException(status_code=403, detail="ACCOUNT_SCHEDULED_FOR_DELETION")
+
+        if not profile_res.data.get("email_confirmed_at"):
+            raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
             
         return AuthenticatedTradie(user, get_supabase_user_client(auth.credentials))
     except HTTPException as he:

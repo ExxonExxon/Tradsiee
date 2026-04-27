@@ -52,6 +52,11 @@ async def lifespan(app: FastAPI):
             content = re.sub(r'>\s+<', '><', content)
             for placeholder, value in ui_paths.items():
                 content = content.replace(placeholder, value)
+            
+            # Inject Global Configuration
+            content = content.replace('[[SUPABASE_URL]]', os.getenv("SUPABASE_URL", ""))
+            content = content.replace('[[SUPABASE_ANON_KEY]]', os.getenv("SUPABASE_ANON_KEY", os.getenv("SUPABASE_KEY", "")))
+
             if is_widget:
                 content = content.replace('[[CLOUD_NAME]]', os.getenv("CLOUDINARY_NAME", ""))
                 content = content.replace('[[UPLOAD_PRESET]]', os.getenv("CLOUDINARY_UPLOAD_PRESET", ""))

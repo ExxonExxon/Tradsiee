@@ -7,7 +7,7 @@ from app.core.config import (
     TWILIO_VERIFY_SERVICE_SID, FRONTEND_URL, logger
 )
 from app.core.dependencies import (
-    run_sync, format_phone, get_current_user, LeadData, AuthenticatedTradie
+    run_sync, format_phone, get_current_user, LeadData, AuthenticatedTradie, log_activity
 )
 
 router = APIRouter(tags=["Leads"])
@@ -17,6 +17,7 @@ async def verify_customer_code(data: dict, request: Request):
     from app.core.config import SMS_AUTH_ENABLED
     phone, code = data.get("phone"), data.get("code")
     if not SMS_AUTH_ENABLED or code == "000000":
+        await log_activity(request, "CUSTOMER_VERIFY_BYPASS", metadata={"phone": phone})
         return {"status": "success"}
     if not phone or not code:
         raise HTTPException(status_code=400, detail="Phone and code required.")
@@ -26,7 +27,10 @@ async def verify_customer_code(data: dict, request: Request):
             to=formatted_phone, code=code
         )
         if check.status != "approved":
+            await log_activity(request, "CUSTOMER_VERIFY_FAIL", metadata={"phone": phone})
             raise HTTPException(status_code=400, detail="Invalid code.")
+        
+        await log_activity(request, "CUSTOMER_VERIFY_SUCCESS", metadata={"phone": phone})
         return {"status": "success"}
     except Exception as e:
         logger.error(f"VERIFY_CHECK_FAILURE: {e}")
@@ -40,6 +44,7 @@ async def upload_raw_video(request: Request, video: UploadFile = File(...)):
     file_path = os.path.join(upload_dir, f"{temp_id}.mov")
     
     try:
+        await log_activity(request, "VIDEO_UPLOAD_START", metadata={"temp_id": temp_id, "filename": video.filename})
         async with aiofiles.open(file_path, 'wb') as out_file:
             while content := await video.read(1024 * 1024):  # Read in 1MB chunks
                 if await request.is_disconnected():
@@ -57,8 +62,9 @@ async def upload_raw_video(request: Request, video: UploadFile = File(...)):
 
 @router.post("/submit-lead-data/{slug}")
 async def submit_lead_data(slug: str, data: LeadData, background_tasks: BackgroundTasks, request: Request):
-    tradie_res = await run_sync(supabase_admin.table("tradies").select("id, phone_number, business_name").eq("slug", slug).single().execute)
-    if not tradie_res.data: raise HTTPException(status_code=404, detail="Not found.")
+    tradie_res = await run_sync(supabase_admin.table("tradies").select("id, phone_number, business_name, deleted_at").eq("slug", slug).single().execute)
+    if not tradie_res.data or tradie_res.data.get("deleted_at"): 
+        raise HTTPException(status_code=404, detail="Not found.")
     tradie = tradie_res.data
 
     lead_data = {
@@ -68,6 +74,9 @@ async def submit_lead_data(slug: str, data: LeadData, background_tasks: Backgrou
     }
     res = await run_sync(supabase_admin.table("leads").insert(lead_data).execute)
     new_lead = res.data[0] if res.data else None
+
+    if new_lead:
+        await log_activity(request, "LEAD_SUBMITTED", tradie_id=tradie["id"], metadata={"lead_id": new_lead["id"]})
 
     # 1. IMMEDIATE: Notify CUSTOMER only
     background_tasks.add_task(send_customer_confirmation, data.customer_phone, tradie["business_name"])
@@ -107,20 +116,29 @@ def send_tradie_lead_alert(lead_id: str):
     except Exception as e: logger.error(f"TRADIE_NOTIFY_FAILURE: {e}")
 
 @router.get("/get-leads/{slug}")
-async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: AuthenticatedTradie = Depends(get_current_user)):
-    biz_res = await run_sync(supabase_admin.table("tradies").select("id, business_name, credits, email, phone_number").eq("slug", slug).single().execute)
-    if not biz_res.data: raise HTTPException(status_code=404, detail="Not found.")
+async def get_leads(request: Request, slug: str, limit: int = 50, offset: int = 0, tradie: AuthenticatedTradie = Depends(get_current_user)):
+    biz_res = await run_sync(supabase_admin.table("tradies").select("id, business_name, credits, email, phone_number, deleted_at").eq("slug", slug).single().execute)
+    if not biz_res.data or biz_res.data.get("deleted_at"): 
+        raise HTTPException(status_code=404, detail="Not found.")
     if biz_res.data["id"] != tradie.id: raise HTTPException(status_code=403, detail="Unauthorized.")
 
     # --- EMAIL SYNC LOGIC ---
-    # If the Auth email is different from the table email, it means a verified change happened.
     auth_email = tradie.user.email
     table_email = biz_res.data.get("email")
     if auth_email and auth_email != table_email:
         logger.info(f"SYNC: Updating table email to verified auth email: {auth_email}")
         await run_sync(supabase_admin.table("tradies").update({"email": auth_email}).eq("id", tradie.id).execute)
 
-    leads_res = await run_sync(tradie.supabase.table("leads").select("*").order("created_at", desc=True).range(offset, offset + limit - 1).execute)
+    # Enforce SOFT DELETE filter on leads
+    leads_res = await run_sync(tradie.supabase.table("leads")
+        .select("*")
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1).execute
+    )
+    
+    await log_activity(request, "VIEW_PIPELINE", tradie_id=tradie.id)
+    
     return {
         "business_name": biz_res.data["business_name"], 
         "slug": slug,
@@ -131,20 +149,28 @@ async def get_leads(slug: str, limit: int = 50, offset: int = 0, tradie: Authent
     }
 
 @router.patch("/update-lead-status/{lead_id}")
-async def update_lead_status(lead_id: str, data: dict, tradie: AuthenticatedTradie = Depends(get_current_user)):
+async def update_lead_status(lead_id: str, data: dict, request: Request, tradie: AuthenticatedTradie = Depends(get_current_user)):
     status = data.get("status")
     if not status:
         raise HTTPException(status_code=400, detail="Status required.")
     
     # Verify ownership before update
-    lead_check = await run_sync(supabase_admin.table("leads").select("tradie_id").eq("id", lead_id).single().execute)
+    lead_check = await run_sync(supabase_admin.table("leads").select("tradie_id, status").eq("id", lead_id).is_("deleted_at", "null").single().execute)
     if not lead_check.data:
         raise HTTPException(status_code=404, detail="Lead not found.")
     if lead_check.data["tradie_id"] != tradie.id:
         raise HTTPException(status_code=403, detail="Unauthorized.")
     
-    res = await run_sync(supabase_admin.table("leads").update({"status": status}).eq("id", lead_id).execute)
+    # Handle Soft Delete vs Status Update
+    from datetime import datetime
+    if status == "deleted":
+        res = await run_sync(supabase_admin.table("leads").update({"deleted_at": datetime.utcnow().isoformat()}).eq("id", lead_id).execute)
+        await log_activity(request, "LEAD_DELETED", tradie_id=tradie.id, metadata={"lead_id": lead_id})
+    else:
+        res = await run_sync(supabase_admin.table("leads").update({"status": status}).eq("id", lead_id).execute)
+        await log_activity(request, "LEAD_STATUS_UPDATE", tradie_id=tradie.id, metadata={"lead_id": lead_id, "new_status": status})
+        
     if not res.data:
-        raise HTTPException(status_code=500, detail="Failed to update status.")
+        raise HTTPException(status_code=500, detail="Operation failed.")
     
     return {"status": "success"}

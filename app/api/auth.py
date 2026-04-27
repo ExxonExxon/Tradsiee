@@ -12,7 +12,7 @@ from app.core.dependencies import (
     run_sync, format_phone, is_rate_limited, generate_unique_slug, 
     get_base_url, security, ForgotPasswordSchema, ResetPasswordSchema,
     UpdateProfileSchema, UpdateAccountSchema, AuthenticatedTradie,
-    get_current_user
+    get_current_user, log_activity
 )
 
 router = APIRouter(tags=["Authentication"])
@@ -50,8 +50,9 @@ async def resend_confirmation(data: dict):
 
 @router.post("/register")
 async def register_tradie(data: dict, request: Request):
-    client_ip = request.client.host
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
     if is_rate_limited(client_ip, "register"):
+        await log_activity(request, "REGISTRATION_RATE_LIMIT")
         logger.warning(f"RATE_LIMIT_EXCEEDED: register from ip={client_ip}")
         raise HTTPException(status_code=429, detail="Too many registration attempts. Please try again in an hour.")
 
@@ -74,6 +75,7 @@ async def register_tradie(data: dict, request: Request):
             except: pass # Orphan profile
 
             if is_verified and not existing.get("deleted_at"):
+                await log_activity(request, "REGISTRATION_CONFLICT_EMAIL", metadata={"email": email})
                 raise HTTPException(status_code=400, detail="This email is already registered. Please sign in.")
             
             logger.info(f"IDENTITY_RECLAMATION: wiping email={email} (verified={is_verified}, soft_delete={bool(existing.get('deleted_at'))})")
@@ -92,6 +94,7 @@ async def register_tradie(data: dict, request: Request):
             except: pass # Orphan profile
 
             if is_verified and not existing.get("deleted_at"):
+                await log_activity(request, "REGISTRATION_CONFLICT_PHONE", metadata={"phone": formatted_phone})
                 raise HTTPException(status_code=400, detail="This phone number is already verified.")
             
             logger.info(f"IDENTITY_RECLAMATION: wiping phone={formatted_phone} (verified={is_verified}, soft_delete={bool(existing.get('deleted_at'))})")
@@ -105,6 +108,7 @@ async def register_tradie(data: dict, request: Request):
             "phone_number": formatted_phone, "slug": new_slug, "credits": 10
         }
         await run_sync(supabase_admin.table("staged_registrations").upsert(staged_data, on_conflict="phone_number").execute)
+        await log_activity(request, "REGISTRATION_STAGED", metadata={"email": email, "slug": new_slug})
         return {"status": "success", "slug": new_slug}
     except HTTPException as he:
         raise he
@@ -113,31 +117,35 @@ async def register_tradie(data: dict, request: Request):
         raise HTTPException(status_code=400, detail="Registration failed.")
 
 @router.post("/login")
-async def login(data: dict):
+async def login(data: dict, request: Request):
     email, password = data.get("email"), data.get("password")
     try:
         auth_res = await run_sync(supabase_admin.auth.sign_in_with_password, {"email": email, "password": password})
-        
-        res = await run_sync(supabase_admin.table("tradies").select("slug, deleted_at").eq("id", auth_res.user.id).single().execute)
+
+        res = await run_sync(supabase_admin.table("tradies").select("id, slug, deleted_at").eq("id", auth_res.user.id).single().execute)
         if not res.data:
+            await log_activity(request, "LOGIN_FAIL_NO_PROFILE", metadata={"email": email})
             raise HTTPException(status_code=403, detail="Profile missing.")
-        
+
         if res.data.get("deleted_at"):
+            await log_activity(request, "LOGIN_BLOCKED_DELETED", tradie_id=res.data["id"], metadata={"email": email})
             raise HTTPException(status_code=403, detail="ACCOUNT_SCHEDULED_FOR_DELETION")
 
+        await log_activity(request, "LOGIN_SUCCESS", tradie_id=res.data["id"], metadata={"email": email})
         return {"slug": res.data["slug"], "access_token": auth_res.session.access_token}
     except HTTPException as he:
         raise he
     except Exception as e:
         msg = str(e)
         if "Email not confirmed" in msg:
-            tradie = await run_sync(supabase_admin.table("tradies").select("slug").eq("email", email).single().execute)
+            tradie = await run_sync(supabase_admin.table("tradies").select("id, slug").eq("email", email).single().execute)
             if tradie.data:
+                await log_activity(request, "LOGIN_BLOCKED_UNVERIFIED", tradie_id=tradie.data["id"], metadata={"email": email})
                 raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
-        
+
+        await log_activity(request, "LOGIN_FAIL", metadata={"email": email})
         logger.error(f"LOGIN_FAILURE: {e}")
         raise HTTPException(status_code=401, detail="Invalid credentials.")
-
 @router.post("/send-verification")
 async def send_verification(data: dict, request: Request):
     from app.core.config import SMS_AUTH_ENABLED
