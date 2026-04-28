@@ -1148,32 +1148,42 @@
     // [SESSION_RECOVERY_ENGINE]
     // Automatically restores the session from LocalStorage on load, just like Facebook/YouTube.
     async function initSession() {
-        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        const savedToken = localStorage.getItem('tradsiee_token');
+        let { data: { session }, error } = await supabaseClient.auth.getSession();
         
+        if (!session && savedToken) {
+            const { data, error: setE } = await supabaseClient.auth.setSession({
+                access_token: savedToken,
+                refresh_token: savedToken
+            });
+            if (!setE && data.session) session = data.session;
+        }
+
         if (error || !session) {
-            console.log("No active session, redirecting...");
             window.location.href = '[[PATH_LOGIN]]';
             return;
         }
 
         state.token = session.access_token;
         setupAuthListener();
-        refresh(); // Initial data load
+        
+        // Final initialization after session is guaranteed
+        initTheme();
+        refresh(false); 
     }
 
     function setupAuthListener() {
-        // Listen for auth changes (token refresh, logout in other tabs)
         supabaseClient.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT') {
                 window.location.href = '[[PATH_LOGIN]]';
             } else if (session) {
                 state.token = session.access_token;
-                console.log("Auth session updated:", event);
+                localStorage.setItem('tradsiee_token', session.access_token);
             }
         });
     }
 
-    initSession();
+    // initSession is called by window.onload to ensure clean startup sequence
 
     let sortableNew, sortableWorking;
     let autoRefreshTimer = null;
@@ -2246,14 +2256,12 @@
             const token = params.get('access_token');
             if (token) {
                 localStorage.setItem('tradsiee_token', token);
-                state.token = token;
                 // Clean the URL without reloading
                 window.history.replaceState(null, null, window.location.pathname);
             }
         }
         
-        initTheme(); 
-        refresh(false); 
+        initSession(); 
     };
 </script>
 </body>
