@@ -200,10 +200,36 @@ This file implements the core customer-facing interface for Tradsiee lead genera
 
     /* [FORM_VALIDATION] */
     function tsValidateStep1() {
-        const first = document.getElementById('ts-first').value.trim();
-        const phone = document.getElementById('ts-phone').value.trim();
+        const first = document.getElementById('ts-first');
+        const phone = document.getElementById('ts-phone');
         const btn = document.getElementById('ts-step1-btn');
-        if (first.length > 0 && phone.length >= 8) {
+        
+        // Basic sanitization
+        const phoneVal = phone.value.replace(/\s+/g, '');
+        
+        // Condition: Name must exist, phone must be at least 9 digits for AU
+        // AU mobile numbers are usually 9 digits after the +61 (e.g., 4XX XXX XXX)
+        if (first.value.trim().length >= 1 && phoneVal.length >= 9) {
+            btn.disabled = false; 
+            btn.style.opacity = '1'; 
+            btn.style.cursor = 'pointer';
+            phone.style.borderColor = 'rgba(0,0,0,0.08)';
+        } else {
+            btn.disabled = true; 
+            btn.style.opacity = '0.4'; 
+            btn.style.cursor = 'not-allowed';
+            if (phoneVal.length > 0 && phoneVal.length < 9) {
+                phone.style.borderColor = '#FF3B30';
+            } else {
+                phone.style.borderColor = 'rgba(0,0,0,0.08)';
+            }
+        }
+    }
+
+    function tsValidateStep2() {
+        const code = document.getElementById('ts-code').value.trim();
+        const btn = document.getElementById('ts-step2-btn');
+        if (code.length === 6) {
             btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
         } else {
             btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'not-allowed';
