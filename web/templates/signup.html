@@ -292,7 +292,11 @@ This file handles the multi-step user registration and phone verification flow f
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                         <div class="field">
                             <label>Business Name</label>
-                            <input type="text" id="biz-name" placeholder="Acme Plumbing">
+                            <input type="text" id="biz-name" placeholder="Acme Plumbing" oninput="onBizNameInput(this.value)">
+                            <div id="slug-preview" style="font-size: 11px; margin-top: 6px; font-weight: 600; color: var(--muted); display: none; align-items: center; gap: 6px;">
+                                <span id="slug-indicator" style="width: 8px; height: 8px; border-radius: 50%; background: var(--muted);"></span>
+                                <span id="slug-text"></span>
+                            </div>
                             <div class="field-error" id="biz-name-error"></div>
                         </div>
                         <div class="field">
@@ -463,6 +467,45 @@ This file handles the multi-step user registration and phone verification flow f
         }
 
         function goBack() { goToStep(1); clearInterval(timerInterval); }
+
+        /* [FIELD_VALIDATION: SLUG_AVAILABILITY] */
+        let slugTimeout = null;
+        function onBizNameInput(val) {
+            const preview = document.getElementById('slug-preview');
+            const indicator = document.getElementById('slug-indicator');
+            const text = document.getElementById('slug-text');
+            
+            if (!val.trim()) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            preview.style.display = 'flex';
+            text.textContent = 'Checking availability...';
+            indicator.style.background = 'var(--muted)';
+
+            clearTimeout(slugTimeout);
+            slugTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/check-slug-availability/${encodeURIComponent(val)}`);
+                    const data = await res.json();
+                    
+                    if (data.available) {
+                        text.textContent = `tradsiee.com/${data.slug} is available`;
+                        indicator.style.background = 'var(--green)';
+                    } else {
+                        if (data.slug) {
+                            text.textContent = `tradsiee.com/${data.slug} is taken`;
+                            indicator.style.background = 'var(--red)';
+                        } else {
+                            preview.style.display = 'none';
+                        }
+                    }
+                } catch(e) {
+                    preview.style.display = 'none';
+                }
+            }, 500);
+        }
 
         /* [FIELD_VALIDATION: PASSWORD_STRENGTH] */
         function checkStrength(p) {

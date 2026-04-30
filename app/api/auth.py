@@ -37,6 +37,21 @@ async def force_delete_auth_user(user_id: str):
         except Exception as e:
             logger.error(f"AUTH_RECLAMATION_EXCEPTION: {e}")
 
+@router.get("/check-slug-availability/{name}")
+async def check_slug_availability(name: str):
+    # Generate the candidate slug the same way the registration process does
+    base = re.sub(r"[^a-zA-Z0-9]", "-", name.lower()).strip("-")
+    if not base:
+        return {"available": False, "slug": ""}
+    
+    # Check if the exact base slug is taken
+    res = await run_sync(supabase_admin.table("tradies").select("id").eq("slug", base).execute)
+    if not res.data:
+        return {"available": True, "slug": base}
+    
+    # If taken, return unavailable but maybe suggest a variant
+    return {"available": False, "slug": base}
+
 @router.post("/resend-confirmation")
 async def resend_confirmation(data: dict):
     email = data.get("email")

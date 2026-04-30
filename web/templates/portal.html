@@ -1150,6 +1150,9 @@
     // [SESSION_RECOVERY_ENGINE]
     // Automatically restores the session from LocalStorage on load, just like Facebook/YouTube.
     async function initSession() {
+        // Keep UI hidden during initial check to prevent ghost session flicker
+        document.body.style.opacity = '0';
+        
         const savedToken = localStorage.getItem('tradsiee_token');
         let { data: { session }, error } = await supabaseClient.auth.getSession();
         
@@ -1169,9 +1172,13 @@
         state.token = session.access_token;
         setupAuthListener();
         
-        // Final initialization after session is guaranteed
         initTheme();
-        refresh(false); 
+        // Wait for actual backend validation before showing the app
+        const success = await refresh(false); 
+        if (success) {
+            document.body.style.transition = 'opacity 0.4s ease';
+            document.body.style.opacity = '1';
+        }
     }
 
     function setupAuthListener() {
@@ -1304,13 +1311,14 @@
 
     /* [API_ORCHESTRATION_LAYER] 
        Synchronizes Local State with the FastAPI backend.
+       Returns true if sync was successful, false otherwise.
     */
     async function refresh(silent = false) {
         // Prevent background refresh if tab is hidden to save resources
         if (document.hidden && silent) {
             clearTimeout(autoRefreshTimer);
             autoRefreshTimer = setTimeout(() => refresh(true), 60000);
-            return;
+            return true;
         }
 
         if (!silent) setSync(true);
@@ -1325,10 +1333,17 @@
                     document.body.style.paddingTop = '42px'; 
                 }
                 setSync(false);
-                return;
+                return true;
             }
 
-            if (!res.ok) { if (res.status === 401) logout(); return; }
+            if (!res.ok) { 
+                if (res.status === 401) {
+                    logout();
+                    return false;
+                }
+                setSync(false);
+                return false; 
+            }
             
             state.isVerified = true;
             document.getElementById('verification-banner').style.display = 'none';
@@ -1345,7 +1360,7 @@
                 setSync(false);
                 clearTimeout(autoRefreshTimer);
                 autoRefreshTimer = setTimeout(() => refresh(true), 15000);
-                return;
+                return true;
             }
 
             state.leads = newLeads;
@@ -1360,11 +1375,15 @@
                 renderData();
                 updateUI();
             }
-        } catch(e) { console.error("Sync Error:", e); }
-        setSync(false);
-        clearTimeout(autoRefreshTimer);
-        // 60 second refresh interval is plenty for a CRM
-        autoRefreshTimer = setTimeout(() => refresh(true), 60000);
+            setSync(false);
+            clearTimeout(autoRefreshTimer);
+            autoRefreshTimer = setTimeout(() => refresh(true), 60000);
+            return true;
+        } catch(e) { 
+            console.error("Sync Error:", e);
+            setSync(false);
+            return false;
+        }
     }
 
     function setSync(on) {
