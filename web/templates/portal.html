@@ -1248,6 +1248,20 @@
 
     function showToast(m, type = 'info') {
         const c = document.getElementById('toast-container');
+        
+        // Prevent duplicate toasts piling up (especially during bulk actions)
+        const existingToasts = Array.from(c.querySelectorAll('.toast'));
+        const isDuplicate = existingToasts.some(t => t.querySelector('span').textContent === m);
+        if (isDuplicate) return;
+
+        // Limit to 3 visible toasts to prevent screen clutter
+        if (existingToasts.length >= 3) {
+            const oldest = existingToasts[0];
+            oldest.style.opacity = '0';
+            oldest.style.transform = 'translateY(-20px) scale(0.9)';
+            setTimeout(() => oldest.remove(), 300);
+        }
+
         const t = document.createElement('div');
         t.className = `toast ${type}`;
         
@@ -1257,7 +1271,15 @@
 
         t.innerHTML = `${icon}<span>${m}</span>`;
         c.appendChild(t);
-        setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; setTimeout(() => t.remove(), 400); }, 4000);
+        
+        // Auto-remove after 3 seconds (slightly faster for better flow)
+        setTimeout(() => { 
+            if (t.parentElement) {
+                t.style.opacity = '0'; 
+                t.style.transform = 'translateY(10px)'; 
+                setTimeout(() => t.remove(), 400); 
+            }
+        }, 3000);
     }
 
     function togglePass(id) {
