@@ -67,22 +67,33 @@ async def submit_lead_data(slug: str, data: LeadData, background_tasks: Backgrou
         raise HTTPException(status_code=404, detail="Not found.")
     tradie = tradie_res.data
 
+    # Determine status and credit impact
+    status = "pending"
+    if LEAD_LIMITS_ENABLED:
+        current_credits = tradie.get("credits") or 0
+        if current_credits <= 0:
+            status = "locked"
+            logger.info(f"QUOTA_EXHAUSTED: Lead for tradie {tradie['id']} created as LOCKED.")
+        else:
+            # Decrement credits
+            new_credits = current_credits - 1
+            await run_sync(supabase_admin.table("tradies").update({"credits": new_credits}).eq("id", tradie["id"]).execute)
+            logger.info(f"CREDITS: Tradie {tradie['id']} decremented to {new_credits}")
+
     lead_data = {
-        "tradie_id": tradie["id"], "video_url": data.video_url or "https://processing.waiting.video", 
-        "customer_phone": format_phone(data.customer_phone), "customer_description": data.customer_description, 
-        "first_name": data.first_name, "last_name": data.last_name, "status": "pending"
+        "tradie_id": tradie["id"], 
+        "video_url": data.video_url or "https://processing.waiting.video", 
+        "customer_phone": format_phone(data.customer_phone), 
+        "customer_description": data.customer_description, 
+        "first_name": data.first_name, 
+        "last_name": data.last_name, 
+        "status": status
     }
     res = await run_sync(supabase_admin.table("leads").insert(lead_data).execute)
     new_lead = res.data[0] if res.data else None
 
     if new_lead:
-        await log_activity(request, "LEAD_SUBMITTED", tradie_id=tradie["id"], metadata={"lead_id": new_lead["id"]})
-        
-        # Decrement credits if limits are enabled
-        if LEAD_LIMITS_ENABLED:
-            new_credits = max(0, (tradie.get("credits") or 0) - 1)
-            await run_sync(supabase_admin.table("tradies").update({"credits": new_credits}).eq("id", tradie["id"]).execute)
-            logger.info(f"CREDITS: Tradie {tradie['id']} decremented to {new_credits}")
+        await log_activity(request, "LEAD_SUBMITTED", tradie_id=tradie["id"], metadata={"lead_id": new_lead["id"], "locked": status == "locked"})
 
     # 1. IMMEDIATE: Notify CUSTOMER only
     background_tasks.add_task(send_customer_confirmation, data.customer_phone, tradie["business_name"])
@@ -92,9 +103,8 @@ async def submit_lead_data(slug: str, data: LeadData, background_tasks: Backgrou
     if new_lead and video_queue:
         work_item = f"LOCAL:{data.temp_video_id}" if data.temp_video_id else data.video_url
         await video_queue.put((new_lead["id"], work_item))
-        logger.info(f"VIDEO_QUEUE: Lead {new_lead['id']} queued. Tradie notification delayed.")
     
-    return {"status": "success"}
+    return {"status": "success", "lead_status": status}
 
 def send_customer_confirmation(customer_phone: str, biz_name: str):
     if not twilio_client: return

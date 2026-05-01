@@ -1514,7 +1514,7 @@
         let n = 0, w = 0;
         filtered.forEach(l => {
             const card = buildCard(l);
-            if (l.status === 'pending') { colNew.appendChild(card); n++; }
+            if (l.status === 'pending' || l.status === 'locked') { colNew.appendChild(card); n++; }
             else { colWork.appendChild(card); w++; }
         });
 
@@ -1537,6 +1537,7 @@
             toggleLeadSelection(l.id);
         };
         
+        const isLocked = l.status === 'locked';
         const isPending = l.status === 'pending';
         
         // Freshness Calculation
@@ -1544,15 +1545,22 @@
         const now = new Date();
         const diffMs = now - created;
         const diffHrs = diffMs / (1000 * 60 * 60);
-        let freshnessClass = 'fresh-stale';
         let freshnessText = timeAgo(l.created_at);
 
-        if (diffHrs < 1) freshnessClass = 'fresh-hot';
-        else if (diffHrs < 24) freshnessClass = 'fresh-warm';
-
-        // Video Locking Logic (90 Days for Archived Leads on Free Plan)
-        const isLocked = state.limitsEnabled && l.status === 'archived' && (diffHrs > (90 * 24));
+        // Video Archival Lock Logic
+        const isArchiveLocked = state.limitsEnabled && l.status === 'archived' && (diffHrs > (90 * 24));
         const isProcessing = l.video_url === 'https://processing.waiting.video';
+
+        // Mask phone if locked
+        let displayPhone = formatPhoneDisplay(l.customer_phone);
+        if (isLocked) {
+            const parts = displayPhone.split(' ');
+            if (parts.length > 1) {
+                displayPhone = parts[0] + ' ••• •••';
+            } else {
+                displayPhone = displayPhone.substring(0, 4) + ' ••••••';
+            }
+        }
 
         div.innerHTML = `
             <div class="swipe-reveal right" style="gap:10px;">
@@ -1569,7 +1577,7 @@
                 </svg>
             </div>
             <div class="card-inner">
-                <div class="card-video" style="${isLocked ? 'filter: grayscale(1) blur(4px); pointer-events: none;' : ''}">
+                <div class="card-video" style="${isArchiveLocked || isLocked ? 'filter: grayscale(1) blur(6px); pointer-events: none;' : ''}">
                     ${isProcessing ? `
                         <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#111; color:#fff; gap:12px;">
                             <div class="icon-btn spinning" style="border:none; background:none; color:var(--blue);"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></div>
@@ -1577,45 +1585,58 @@
                         </div>
                     ` : `
                         <video src="${escapeHTML(l.video_url)}" muted loop playsinline onerror="this.parentElement.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1c1c1e;color:#666;font-size:10px;font-weight:800;text-transform:uppercase;\'>Video Unavailable</div>'"></video>
-                        ${isLocked ? '' : `
+                        ${(isArchiveLocked || isLocked) ? '' : `
                             <div class="play-btn no-drag" onclick="openVideo('${escapeHTML(l.video_url)}')">
                                 <svg fill="currentColor" viewBox="0 0 24 24" width="26" height="26"><path d="M8 5v14l11-7z"/></svg>
                             </div>
                         `}
                     `}
                 </div>
-                ${isLocked ? `
-                    <div class="no-drag" onclick="openUpgradeModal()" style="position:absolute; inset: 0; height: 115px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); color: #fff; z-index: 21; cursor: pointer; backdrop-filter: blur(2px);">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24" stroke-width="2.5"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                        <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 8px; letter-spacing: 0.05em;">Unlock Video</span>
+                ${isArchiveLocked || isLocked ? `
+                    <div class="no-drag" onclick="openUpgradeModal()" style="position:absolute; inset: 0; height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); color: #fff; z-index: 21; cursor: pointer; backdrop-filter: blur(2px);">
+                        <div style="background: rgba(255,255,255,0.2); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20" stroke-width="2.5"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        </div>
+                        <span style="font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;">${isLocked ? 'Quota Reached' : 'Unlock Video'}</span>
                     </div>
                 ` : ''}
                 <div class="card-body">
-                    <div class="freshness-badge">${freshnessText}</div>
+                    <div class="freshness-badge" style="${isLocked ? 'background: var(--orange-bg); color: var(--orange);' : ''}">${isLocked ? 'Quota Exceeded' : freshnessText}</div>
                     <div class="card-name">${escapeHTML(l.first_name)} ${escapeHTML(l.last_name)}</div>
-                    <div class="card-phone">${escapeHTML(formatPhoneDisplay(l.customer_phone))}</div>
-                    <div class="card-desc">${escapeHTML(l.customer_description || 'No description provided.')}</div>
+                    <div class="card-phone">${escapeHTML(displayPhone)}</div>
+                    <div class="card-desc" style="${isLocked ? 'filter: blur(4px);' : ''}">${escapeHTML(l.customer_description || 'No description provided.')}</div>
                     
                     <div class="card-actions" style="display: ${state.bulkMode ? 'none' : 'grid'}; grid-template-columns: 1fr auto auto; gap: 8px;">
-                        ${l.status === 'pending' ? `
+                        ${isLocked ? `
+                            <button class="card-btn-primary no-drag" style="background: var(--blue); grid-column: 1 / -1;" onclick="openUpgradeModal()">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" style="margin-right: 6px;" stroke-width="3"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                Upgrade to View Details
+                            </button>
+                        ` : (l.status === 'pending' ? `
                             <button class="card-btn-primary no-drag" onclick="updateStatus('${l.id}', 'contacted')">
                                 Move to Working
+                            </button>
+                            <button class="card-btn-icon no-drag" onclick="openSMS('${l.id}')" title="Send SMS">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            </button>
+                            <button class="card-btn-icon no-drag" onclick="window.location.href='tel:${l.customer_phone}'" title="Call Customer">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
                             </button>
                         ` : (l.status === 'contacted' ? `
                             <button class="card-btn-primary working no-drag" onclick="updateStatus('${l.id}', 'archived')">
                                 Archive Lead
                             </button>
+                            <button class="card-btn-icon no-drag" onclick="openSMS('${l.id}')" title="Send SMS">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            </button>
+                            <button class="card-btn-icon no-drag" onclick="window.location.href='tel:${l.customer_phone}'" title="Call Customer">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                            </button>
                         ` : `
                             <button class="card-btn-primary no-drag" style="background: var(--blue);" onclick="updateStatus('${l.id}', 'pending')">
                                 Restore Lead
                             </button>
-                        `)}
-                        <button class="card-btn-icon" onclick="openSMS('${l.id}')" title="Send SMS">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                        </button>
-                        <button class="card-btn-icon" onclick="window.location.href='tel:${l.customer_phone}'" title="Call Customer">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                        </button>
+                        `))}
                     </div>
                 </div>
             </div>`;
@@ -1972,6 +1993,13 @@
         const l = state.leads.find(x => String(x.id) === String(id));
         if (!l) return;
         
+        // Prevent moving locked leads until they are upgraded
+        if (l.status === 'locked' && s !== 'locked') {
+            showToast('Upgrade your plan to unlock this lead.', 'info');
+            openUpgradeModal();
+            return;
+        }
+
         const oldStatus = l.status;
         l.status = s;
 
